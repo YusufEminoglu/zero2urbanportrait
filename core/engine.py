@@ -318,7 +318,7 @@ class PortraitEngine(QObject):
             if index < 3:
                 underlay = QgsSimpleLineSymbolLayer.create({
                     "line_color": QColor(color).darker(250).name(),
-                    "line_width": str(width + 0.9), "line_style": "solid",
+                    "line_width": str(width + 0.35), "line_style": "solid",
                     "capstyle": "round", "joinstyle": "round",
                 })
                 if underlay is not None:

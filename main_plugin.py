@@ -61,7 +61,7 @@ class O2UrbanPortraitPlugin:
     def _toggle_dock(self) -> None:
         if self.dock is None:
             try:
-                from .dialogs.dock import UrbanPortraitDock
+                from .dialogs.studio import UrbanPortraitDock
 
                 self.dock = UrbanPortraitDock(self.iface, self.iface.mainWindow())
                 self.dock.setObjectName("O2UrbanPortraitDock")
