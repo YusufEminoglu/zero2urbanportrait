@@ -1,0 +1,4 @@
+tests/
+icon-source.png
+*.pyc
+__pycache__/

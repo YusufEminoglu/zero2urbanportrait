@@ -1,0 +1,26 @@
+[general]
+name=02Urban Portrait - City as a Face
+qgisMinimumVersion=3.28
+qgisMaximumVersion=4.99
+description=Turn roads and buildings into a live portrait using image luminance, non-destructive rule-based styling, and smart masks.
+version=0.1.0
+author=Yusuf Eminoglu
+email=yusuf.eminoglu@deu.edu.tr
+
+about=02Urban Portrait transforms vector infrastructure into optical portraits and graphic masks. Load a profile image, map it to a geographic frame, and style roads, buildings, points, or other vector layers from sampled pixel luminance without changing source geometries or attributes. Includes live pan and zoom updates, multi-point sampling, artistic presets, smart contrast and edge masks, reversible styling, and project-portable mask settings.
+
+tracker=https://github.com/YusufEminoglu/zero2urbanportrait/issues
+repository=https://github.com/YusufEminoglu/zero2urbanportrait
+homepage=https://github.com/YusufEminoglu/zero2urbanportrait
+
+category=Vector
+tags=portrait,osm,optical illusion,luminance,cartography,roads,buildings,generative art
+icon=icons/icon.png
+
+experimental=False
+deprecated=False
+hasProcessingProvider=no
+license=GPL-3
+
+changelog=
+    0.1.0 - Initial release with live luminance sampling, smart masks, five artistic presets, reversible renderers, and viewport-aware updates.
