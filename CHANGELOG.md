@@ -2,6 +2,14 @@
 
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.2] - 2026-07-20
+
+### Changed
+
+- Rebuilt the studio as a polished three-step Set up, Portrait, and Export workflow.
+- Added a branded hero, active workflow strip, card-based controls, clearer action hierarchy, and cohesive visual theme.
+- Moved OSM acquisition, portrait shaping, artwork export, QML portability, and renderer recovery into focused spaces.
+
 ## [0.2.1] - 2026-07-20
 
 ### Fixed

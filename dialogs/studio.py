@@ -33,22 +33,24 @@ class UrbanPortraitDock(_BaseDock):
         self._build_frame_visibility_control()
         self._build_export_panel()
         self._connect_extended_signals()
+        self._update_controls()
 
     def _content_layout(self):
-        return self.widget().widget().layout()
+        return self.setup_layout
 
     def _build_data_source_panel(self) -> None:
-        box = QGroupBox("Data source - choose either workflow")
+        box = QGroupBox("Get city data")
         layout = QVBoxLayout(box)
         explanation = QLabel(
-            "A. Use vector layers already in the project, or B. add the OSM basemap, "
-            "zoom to a small urban area, and download portrait-ready vectors."
+            "Use project vectors, or bring a portrait-ready neighbourhood from OpenStreetMap."
         )
         explanation.setWordWrap(True)
+        explanation.setObjectName("mutedHint")
         layout.addWidget(explanation)
         row = QHBoxLayout()
-        self.add_basemap_button = QPushButton("1. Add OSM basemap")
-        self.download_osm_button = QPushButton("2. Download current view")
+        self.add_basemap_button = QPushButton("Add OSM basemap")
+        self.download_osm_button = QPushButton("Download this view")
+        self.download_osm_button.setObjectName("accentButton")
         row.addWidget(self.add_basemap_button)
         row.addWidget(self.download_osm_button)
         layout.addLayout(row)
@@ -56,7 +58,7 @@ class UrbanPortraitDock(_BaseDock):
         self.osm_area_label.setWordWrap(True)
         self.osm_area_label.setStyleSheet("color: #475569;")
         layout.addWidget(self.osm_area_label)
-        self._content_layout().insertWidget(1, box)
+        self._content_layout().insertWidget(0, box)
 
     def _build_frame_visibility_control(self) -> None:
         frame_box = self.canvas_frame_button.parentWidget()
@@ -67,8 +69,13 @@ class UrbanPortraitDock(_BaseDock):
         self._frame_band.hide()
 
     def _build_export_panel(self) -> None:
-        box = QGroupBox("6. Export map artwork")
+        box = QGroupBox("Export artwork")
         form = QFormLayout(box)
+        explanation = QLabel(
+            "Save the complete canvas composition for print, presentation, or further editing."
+        )
+        explanation.setWordWrap(True)
+        explanation.setObjectName("mutedHint")
         self.export_format = QComboBox()
         self.export_format.addItems(("PNG", "PDF", "SVG"))
         self.export_dpi = QSpinBox()
@@ -76,11 +83,12 @@ class UrbanPortraitDock(_BaseDock):
         self.export_dpi.setValue(300)
         self.export_dpi.setSuffix(" dpi")
         self.export_map_button = QPushButton("Export current composition...")
+        self.export_map_button.setObjectName("primaryButton")
+        form.addRow(explanation)
         form.addRow("Format", self.export_format)
         form.addRow("Raster resolution", self.export_dpi)
         form.addRow(self.export_map_button)
-        root = self._content_layout()
-        root.insertWidget(max(0, root.count() - 2), box)
+        self.output_layout.insertWidget(1, box)
 
     def _connect_extended_signals(self) -> None:
         self.add_basemap_button.clicked.connect(self._add_osm_basemap)
@@ -90,8 +98,21 @@ class UrbanPortraitDock(_BaseDock):
         self.osm_manager.failed.connect(self._osm_failed)
         self.show_frame.toggled.connect(self._toggle_frame_visibility)
         self.export_map_button.clicked.connect(self._export_map)
+        self.export_format.currentTextChanged.connect(self._export_format_changed)
         self.canvas.extentsChanged.connect(self._update_osm_area_label)
         self._update_osm_area_label()
+
+    def _export_format_changed(self, output_format: str) -> None:
+        self.export_dpi.setEnabled(output_format == "PNG")
+        self.export_dpi.setToolTip(
+            "Used for PNG raster export." if output_format == "PNG"
+            else "Vector formats do not use raster DPI."
+        )
+
+    def _update_controls(self) -> None:
+        super()._update_controls()
+        if hasattr(self, "export_map_button"):
+            self.export_map_button.setEnabled(bool(self.engine._styled_layers))
 
     def _add_osm_basemap(self) -> None:
         try:
@@ -128,7 +149,7 @@ class UrbanPortraitDock(_BaseDock):
 
     def _osm_started(self, summary: str) -> None:
         self.download_osm_button.setEnabled(False)
-        self.download_osm_button.setText("Downloading...")
+        self.download_osm_button.setText("Downloading city data...")
         self.progress.setRange(0, 0)
         self._set_status(f"Downloading roads, buildings, and land use for {summary}...")
 
@@ -154,14 +175,14 @@ class UrbanPortraitDock(_BaseDock):
         self._show_frame(self.engine.bounds)
         self.progress.setRange(0, 1)
         self.progress.setValue(1)
-        self.download_osm_button.setText("2. Download current view")
+        self.download_osm_button.setText("Download this view")
         self._update_osm_area_label()
         self._set_status("OSM vectors added and selected. " + "; ".join(counts))
 
     def _osm_failed(self, message: str) -> None:
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
-        self.download_osm_button.setText("2. Download current view")
+        self.download_osm_button.setText("Download this view")
         self._update_osm_area_label()
         self._set_status(message, error=True)
 

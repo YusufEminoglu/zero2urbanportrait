@@ -15,6 +15,7 @@ from qgis.PyQt.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -24,6 +25,8 @@ from qgis.PyQt.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSpinBox,
+    QStyle,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -66,24 +69,65 @@ class UrbanPortraitDock(QDockWidget):
 
     def _build_ui(self) -> None:
         self.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
-        scroll = QScrollArea(self)
-        scroll.setWidgetResizable(True)
-        container = QWidget(scroll)
-        root = QVBoxLayout(container)
-        root.setContentsMargins(8, 8, 8, 8)
-        root.setSpacing(8)
+        self.setMinimumWidth(390)
+        self._apply_theme()
+        shell = QWidget(self)
+        shell.setObjectName("studioShell")
+        root = QVBoxLayout(shell)
+        root.setContentsMargins(10, 10, 10, 10)
+        root.setSpacing(9)
 
-        intro = QLabel("Turn streets and buildings into a portrait. Source features are never edited.")
-        intro.setWordWrap(True)
-        intro.setStyleSheet("font-weight: 600; color: #334155;")
-        root.addWidget(intro)
+        hero = QFrame(shell)
+        hero.setObjectName("heroCard")
+        hero_layout = QHBoxLayout(hero)
+        hero_layout.setContentsMargins(14, 13, 14, 13)
+        hero_layout.setSpacing(11)
+        icon_label = QLabel()
+        icon_label.setFixedSize(50, 50)
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon = QPixmap(str(Path(__file__).resolve().parents[1] / "icons" / "icon.png"))
+        if not icon.isNull():
+            icon_label.setPixmap(
+                icon.scaled(
+                    46, 46, Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
+        hero_layout.addWidget(icon_label)
+        hero_copy = QVBoxLayout()
+        hero_copy.setSpacing(2)
+        title = QLabel("02Urban Portrait")
+        title.setObjectName("heroTitle")
+        subtitle = QLabel("Shape the city into a face")
+        subtitle.setObjectName("heroSubtitle")
+        hero_copy.addWidget(title)
+        hero_copy.addWidget(subtitle)
+        hero_layout.addLayout(hero_copy, 1)
+        badge = QLabel("LOCAL  ·  SAFE")
+        badge.setObjectName("localBadge")
+        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hero_layout.addWidget(badge, 0, Qt.AlignmentFlag.AlignTop)
+        root.addWidget(hero)
 
-        image_box = QGroupBox("1. Portrait mask")
+        self.workflow = QLabel("●  SET UP   ›   02  SHAPE PORTRAIT   ›   03  EXPORT")
+        self.workflow.setObjectName("workflowStrip")
+        self.workflow.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        root.addWidget(self.workflow)
+
+        self.tabs = QTabWidget(shell)
+        self.tabs.setDocumentMode(True)
+        self.setup_layout = self._create_tab(self.tabs, "Set up")
+        self.style_layout = self._create_tab(self.tabs, "Portrait")
+        self.output_layout = self._create_tab(self.tabs, "Export")
+        root.addWidget(self.tabs, 1)
+
+        image_box = QGroupBox("Portrait picture")
         image_layout = QVBoxLayout(image_box)
+        image_layout.setSpacing(8)
         self.preview = QLabel("No image selected")
         self.preview.setFixedHeight(180)
         self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview.setStyleSheet("background: #071023; color: #94a3b8; border-radius: 6px;")
+        self.preview.setObjectName("imagePreview")
         image_layout.addWidget(self.preview)
         image_row = QHBoxLayout()
         self.image_path = QLabel("Choose JPG, PNG, TIFF, or WebP")
@@ -94,12 +138,20 @@ class UrbanPortraitDock(QDockWidget):
         image_layout.addLayout(image_row)
         self.image_details = QLabel("Aspect ratio is always preserved; images are never stretched.")
         self.image_details.setWordWrap(True)
-        self.image_details.setStyleSheet("color: #0f766e;")
+        self.image_details.setObjectName("successHint")
         image_layout.addWidget(self.image_details)
-        root.addWidget(image_box)
+        self.browse_button.setObjectName("accentButton")
+        self.browse_button.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)
+        )
+        self.setup_layout.addWidget(image_box)
 
-        layer_box = QGroupBox("2. Vector layers")
+        layer_box = QGroupBox("Vector canvas")
         layer_layout = QVBoxLayout(layer_box)
+        layer_hint = QLabel("Select the roads, buildings or points that will carry the portrait.")
+        layer_hint.setWordWrap(True)
+        layer_hint.setObjectName("mutedHint")
+        layer_layout.addWidget(layer_hint)
         self.layer_list = QListWidget()
         self.layer_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.layer_list.setMinimumHeight(105)
@@ -112,9 +164,12 @@ class UrbanPortraitDock(QDockWidget):
         layer_buttons.addWidget(self.all_button)
         layer_buttons.addWidget(self.refresh_layers_button)
         layer_layout.addLayout(layer_buttons)
-        root.addWidget(layer_box)
+        self.refresh_layers_button.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
+        )
+        self.setup_layout.addWidget(layer_box)
 
-        frame_box = QGroupBox("3. Geographic image frame")
+        frame_box = QGroupBox("Portrait placement")
         frame_layout = QVBoxLayout(frame_box)
         frame_buttons = QHBoxLayout()
         self.canvas_frame_button = QPushButton("Use canvas extent")
@@ -130,12 +185,16 @@ class UrbanPortraitDock(QDockWidget):
         frame_layout.addWidget(self.frame_label)
         aspect_note = QLabel("The frame is automatically fitted to the uploaded picture ratio.")
         aspect_note.setWordWrap(True)
-        aspect_note.setStyleSheet("color: #64748b;")
+        aspect_note.setObjectName("mutedHint")
         frame_layout.addWidget(aspect_note)
-        root.addWidget(frame_box)
+        self.setup_layout.addWidget(frame_box)
+        self.setup_layout.addStretch(1)
 
-        style_box = QGroupBox("4. Art direction")
+        style_box = QGroupBox("Art direction")
         form = QFormLayout(style_box)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setHorizontalSpacing(14)
+        form.setVerticalSpacing(9)
         self.preset = QComboBox()
         self.preset.addItems(list(PRESETS))
         self.sampling = QComboBox()
@@ -168,41 +227,119 @@ class UrbanPortraitDock(QDockWidget):
         form.addRow("Visible feature limit", self.max_features)
         form.addRow(self.auto_contrast)
         form.addRow(self.invert)
-        root.addWidget(style_box)
+        self.style_layout.addWidget(style_box)
 
-        live_box = QGroupBox("5. Render")
+        live_box = QGroupBox("Live portrait")
         live_layout = QVBoxLayout(live_box)
+        live_hint = QLabel("Create once, then tune the portrait while the map updates in place.")
+        live_hint.setWordWrap(True)
+        live_hint.setObjectName("mutedHint")
+        live_layout.addWidget(live_hint)
         self.live = QCheckBox("Live update during map navigation")
         self.live.setChecked(True)
         live_layout.addWidget(self.live)
         render_row = QHBoxLayout()
         self.apply_button = QPushButton("Create portrait")
-        self.apply_button.setStyleSheet("font-weight: 700; padding: 7px; background: #22d3ee; color: #082f49;")
+        self.apply_button.setObjectName("primaryButton")
         self.update_button = QPushButton("Update")
         render_row.addWidget(self.apply_button, 2)
         render_row.addWidget(self.update_button)
         live_layout.addLayout(render_row)
+        self.style_layout.addWidget(live_box)
+        self.style_layout.addStretch(1)
+
+        export_intro = QLabel(
+            "Finish the composition, export the map artwork, or keep a reusable QGIS style."
+        )
+        export_intro.setWordWrap(True)
+        export_intro.setObjectName("tabIntro")
+        self.output_layout.addWidget(export_intro)
+
+        safe_box = QGroupBox("Style portability & recovery")
+        safe_layout = QVBoxLayout(safe_box)
+        safe_hint = QLabel(
+            "Export one selected portrait layer as QML, or restore every source renderer instantly."
+        )
+        safe_hint.setWordWrap(True)
+        safe_hint.setObjectName("mutedHint")
+        safe_layout.addWidget(safe_hint)
         safe_row = QHBoxLayout()
         self.restore_button = QPushButton("Restore original styles")
         self.export_button = QPushButton("Export QML...")
+        self.restore_button.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogResetButton)
+        )
+        self.export_button.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
+        )
         safe_row.addWidget(self.restore_button)
         safe_row.addWidget(self.export_button)
-        live_layout.addLayout(safe_row)
-        root.addWidget(live_box)
+        safe_layout.addLayout(safe_row)
+        self.output_layout.addWidget(safe_box)
+        self.output_layout.addStretch(1)
 
         self.progress = QProgressBar()
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
+        self.progress.setTextVisible(False)
+        self.progress.setFixedHeight(5)
         root.addWidget(self.progress)
         self.status = QLabel("Ready. Choose a portrait image and one or more vector layers.")
         self.status.setWordWrap(True)
-        self.status.setStyleSheet("color: #475569; padding: 5px;")
+        self.status.setObjectName("statusCard")
         root.addWidget(self.status)
-        root.addStretch(1)
-        scroll.setWidget(container)
-        self.setWidget(scroll)
+        self.setWidget(shell)
+
+    def _create_tab(self, tabs: QTabWidget, title: str) -> QVBoxLayout:
+        scroll = QScrollArea(tabs)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        page = QWidget(scroll)
+        page.setObjectName("tabPage")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(9, 12, 9, 12)
+        layout.setSpacing(11)
+        scroll.setWidget(page)
+        tabs.addTab(scroll, title)
+        return layout
+
+    def _apply_theme(self) -> None:
+        self.setStyleSheet("""
+            QWidget#studioShell, QWidget#tabPage { background: #f4f7fb; color: #1e293b; }
+            QFrame#heroCard { background: #0f172a; border: 1px solid #1e293b; border-radius: 14px; }
+            QLabel#heroTitle { color: #f8fafc; font-size: 18px; font-weight: 700; }
+            QLabel#heroSubtitle { color: #94a3b8; font-size: 11px; }
+            QLabel#localBadge { background: #164e63; color: #67e8f9; border-radius: 9px; padding: 4px 8px; font-size: 9px; font-weight: 700; }
+            QLabel#workflowStrip { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; border-radius: 8px; padding: 8px; font-size: 10px; font-weight: 700; }
+            QTabWidget::pane { border: 1px solid #dbe4ef; border-radius: 10px; background: #f4f7fb; top: -1px; }
+            QTabBar::tab { background: #e8eef6; color: #64748b; border: 1px solid #dbe4ef; padding: 9px 18px; min-width: 72px; font-weight: 600; }
+            QTabBar::tab:first { border-top-left-radius: 8px; }
+            QTabBar::tab:last { border-top-right-radius: 8px; }
+            QTabBar::tab:selected { background: #ffffff; color: #0e7490; border-bottom-color: #ffffff; }
+            QGroupBox { background: #ffffff; border: 1px solid #dbe4ef; border-radius: 11px; margin-top: 13px; padding: 12px 9px 9px 9px; font-weight: 700; color: #0f172a; }
+            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; color: #334155; }
+            QLabel#imagePreview { background: #091225; color: #94a3b8; border: 1px solid #1e293b; border-radius: 9px; }
+            QLabel#mutedHint { color: #64748b; font-size: 10px; }
+            QLabel#successHint { color: #0f766e; background: #ecfdf5; border-radius: 6px; padding: 5px 7px; font-size: 10px; }
+            QLabel#tabIntro { color: #475569; background: #eef6ff; border: 1px solid #dbeafe; border-radius: 8px; padding: 9px; }
+            QListWidget, QComboBox, QSpinBox, QDoubleSpinBox { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px; selection-background-color: #cffafe; selection-color: #164e63; }
+            QListWidget::item { padding: 5px; border-radius: 4px; }
+            QListWidget::item:selected { background: #cffafe; color: #155e75; }
+            QPushButton { background: #ffffff; color: #334155; border: 1px solid #cbd5e1; border-radius: 7px; padding: 7px 10px; font-weight: 600; }
+            QPushButton:hover { background: #f0f9ff; border-color: #38bdf8; color: #075985; }
+            QPushButton:pressed { background: #e0f2fe; }
+            QPushButton:disabled { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }
+            QPushButton#accentButton { background: #ecfeff; color: #0e7490; border-color: #67e8f9; }
+            QPushButton#primaryButton { background: #0891b2; color: #ffffff; border-color: #0891b2; padding: 9px 13px; font-weight: 700; }
+            QPushButton#primaryButton:hover { background: #0e7490; border-color: #0e7490; }
+            QCheckBox { color: #334155; spacing: 7px; padding: 2px; }
+            QProgressBar { background: #dbe4ef; border: none; border-radius: 2px; }
+            QProgressBar::chunk { background: #06b6d4; border-radius: 2px; }
+            QLabel#statusCard { color: #475569; background: #ffffff; border: 1px solid #dbe4ef; border-radius: 8px; padding: 8px 10px; }
+        """)
 
     def _connect_signals(self) -> None:
+        self.tabs.currentChanged.connect(self._tab_changed)
         self.browse_button.clicked.connect(self._choose_image)
         self.refresh_layers_button.clicked.connect(self._refresh_layers)
         self.layer_list.itemSelectionChanged.connect(self._update_controls)
@@ -228,6 +365,14 @@ class UrbanPortraitDock(QDockWidget):
             signal = getattr(widget, "currentTextChanged", None) or getattr(widget, "valueChanged", None) or getattr(widget, "toggled", None)
             if signal is not None:
                 signal.connect(self._style_changed)
+
+    def _tab_changed(self, index: int) -> None:
+        steps = (
+            "●  SET UP   ›   02  SHAPE PORTRAIT   ›   03  EXPORT",
+            "01  SET UP   ›   ●  SHAPE PORTRAIT   ›   03  EXPORT",
+            "01  SET UP   ›   02  SHAPE PORTRAIT   ›   ●  EXPORT",
+        )
+        self.workflow.setText(steps[max(0, min(index, len(steps) - 1))])
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
@@ -445,7 +590,16 @@ class UrbanPortraitDock(QDockWidget):
 
     def _set_status(self, text: str, error: bool = False) -> None:
         self.status.setText(text)
-        self.status.setStyleSheet(f"color: {'#b91c1c' if error else '#475569'}; padding: 5px;")
+        if error:
+            self.status.setStyleSheet(
+                "color: #b91c1c; background: #fff1f2; border: 1px solid #fecdd3; "
+                "border-radius: 8px; padding: 8px 10px;"
+            )
+        else:
+            self.status.setStyleSheet(
+                "color: #475569; background: #ffffff; border: 1px solid #dbe4ef; "
+                "border-radius: 8px; padding: 8px 10px;"
+            )
         if error:
             self.iface.messageBar().pushWarning(TITLE, text)
 
