@@ -16,7 +16,7 @@ from qgis.PyQt.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
 )
-from qgis.core import QgsProject, QgsWkbTypes
+from qgis.core import QgsProject
 
 from ..core.exporter import export_canvas
 from ..core.osm_download import OsmDownloadManager, validate_download_extent

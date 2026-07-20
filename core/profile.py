@@ -13,6 +13,31 @@ class NormalizedPoint:
     v: float
 
 
+def fit_bounds_to_aspect(
+    bounds: tuple[float, float, float, float], aspect_ratio: float
+) -> tuple[float, float, float, float]:
+    """Center the largest undistorted image frame inside the supplied bounds."""
+    xmin, ymin, xmax, ymax = bounds
+    width = xmax - xmin
+    height = ymax - ymin
+    ratio = float(aspect_ratio)
+    if width <= 0.0 or height <= 0.0:
+        raise ValueError("Image frame must have a positive width and height.")
+    if ratio <= 0.0:
+        raise ValueError("Image aspect ratio must be positive.")
+
+    frame_ratio = width / height
+    if frame_ratio > ratio:
+        fitted_width = height * ratio
+        inset = (width - fitted_width) / 2.0
+        return xmin + inset, ymin, xmax - inset, ymax
+    if frame_ratio < ratio:
+        fitted_height = width / ratio
+        inset = (height - fitted_height) / 2.0
+        return xmin, ymin + inset, xmax, ymax - inset
+    return bounds
+
+
 def map_to_normalized(x: float, y: float, bounds: tuple[float, float, float, float]) -> NormalizedPoint | None:
     """Map a world point to image coordinates, flipping the vertical axis."""
     xmin, ymin, xmax, ymax = bounds

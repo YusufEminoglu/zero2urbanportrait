@@ -3,7 +3,7 @@ name=02Urban Portrait - City as a Face
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Create live urban portraits from built-in OSM downloads or project vectors, with luminance styling and print-ready export.
-version=0.2.0
+version=0.2.1
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 

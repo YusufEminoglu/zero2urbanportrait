@@ -26,7 +26,13 @@ from qgis.core import (
 )
 
 from .presets import PRESETS, TONE_BREAKS
-from .profile import adjust_luminance, blend_edge, map_to_normalized, quantile_limits
+from .profile import (
+    adjust_luminance,
+    blend_edge,
+    fit_bounds_to_aspect,
+    map_to_normalized,
+    quantile_limits,
+)
 
 
 _LUMINANCE_CACHE: dict[tuple[str, int], int] = {}
@@ -79,6 +85,9 @@ class ImageProfile:
     def __init__(self, image: QImage, path: str):
         if image.isNull():
             raise ValueError("The selected image could not be decoded.")
+        self.source_width = image.width()
+        self.source_height = image.height()
+        self.aspect_ratio = self.source_width / self.source_height
         if image.width() > 1800 or image.height() > 1800:
             image = image.scaled(1800, 1800, Qt.AspectRatioMode.KeepAspectRatio,
                                  Qt.TransformationMode.SmoothTransformation)
@@ -140,6 +149,7 @@ class PortraitEngine(QObject):
         super().__init__(parent)
         self.canvas = canvas
         self.profile: ImageProfile | None = None
+        self.frame_container: QgsRectangle | None = None
         self.bounds: QgsRectangle | None = None
         self.options = RenderOptions()
         self._original_renderers: dict[str, object] = {}
@@ -147,12 +157,25 @@ class PortraitEngine(QObject):
 
     def set_image(self, path: str) -> None:
         self.profile = ImageProfile.load(path)
-        self.message.emit(f"Image loaded: {Path(path).name} ({self.profile.image.width()} x {self.profile.image.height()})")
+        if self.frame_container is not None:
+            self.set_bounds(self.frame_container)
+        self.message.emit(
+            f"Image loaded: {Path(path).name} "
+            f"({self.profile.source_width} x {self.profile.source_height})"
+        )
 
     def set_bounds(self, rectangle: QgsRectangle) -> None:
         if rectangle.isEmpty() or rectangle.width() <= 0 or rectangle.height() <= 0:
             raise ValueError("Image frame must have a positive width and height.")
-        self.bounds = QgsRectangle(rectangle)
+        self.frame_container = QgsRectangle(rectangle)
+        if self.profile is None:
+            self.bounds = QgsRectangle(rectangle)
+            return
+        fitted = fit_bounds_to_aspect(
+            (rectangle.xMinimum(), rectangle.yMinimum(), rectangle.xMaximum(), rectangle.yMaximum()),
+            self.profile.aspect_ratio,
+        )
+        self.bounds = QgsRectangle(*fitted)
 
     def apply(self, layers: list[QgsVectorLayer]) -> tuple[int, int]:
         if self.profile is None:

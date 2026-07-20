@@ -59,6 +59,7 @@ class O2UrbanPortraitPlugin:
         self.actions.clear()
 
     def _toggle_dock(self) -> None:
+        created = False
         if self.dock is None:
             try:
                 from .dialogs.studio import UrbanPortraitDock
@@ -69,11 +70,12 @@ class O2UrbanPortraitPlugin:
                 self.dock.request_map_tool.connect(self._set_map_tool)
                 self.dock.request_unset_tool.connect(self._unset_map_tool)
                 self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock)
+                created = True
             except Exception as exc:
                 QMessageBox.critical(self.iface.mainWindow(), TITLE, f"Could not open the studio:\n{exc}")
                 self.panel_action.setChecked(False)
                 return
-        visible = not self.dock.isVisible()
+        visible = True if created else not self.dock.isVisible()
         self.dock.setVisible(visible)
         if visible:
             self.dock.raise_()

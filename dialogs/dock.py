@@ -20,7 +20,6 @@ from qgis.PyQt.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollArea,
@@ -45,6 +44,8 @@ class UrbanPortraitDock(QDockWidget):
 
     def __init__(self, iface, parent=None):
         super().__init__("02Urban Portrait - City as a Face", parent)
+        self._restoring_state = False
+        self._preview_pixmap = QPixmap()
         self.iface = iface
         self.canvas = iface.mapCanvas()
         self.engine = PortraitEngine(self.canvas, self)
@@ -61,6 +62,7 @@ class UrbanPortraitDock(QDockWidget):
         self._connect_signals()
         self._refresh_layers()
         self._restore_project_state()
+        self._update_controls()
 
     def _build_ui(self) -> None:
         self.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
@@ -79,17 +81,21 @@ class UrbanPortraitDock(QDockWidget):
         image_box = QGroupBox("1. Portrait mask")
         image_layout = QVBoxLayout(image_box)
         self.preview = QLabel("No image selected")
-        self.preview.setMinimumHeight(130)
+        self.preview.setFixedHeight(180)
         self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview.setStyleSheet("background: #071023; color: #94a3b8; border-radius: 6px;")
         image_layout.addWidget(self.preview)
         image_row = QHBoxLayout()
         self.image_path = QLabel("Choose JPG, PNG, TIFF, or WebP")
         self.image_path.setWordWrap(True)
-        self.browse_button = QPushButton("Choose image...")
+        self.browse_button = QPushButton("Upload picture...")
         image_row.addWidget(self.image_path, 1)
         image_row.addWidget(self.browse_button)
         image_layout.addLayout(image_row)
+        self.image_details = QLabel("Aspect ratio is always preserved; images are never stretched.")
+        self.image_details.setWordWrap(True)
+        self.image_details.setStyleSheet("color: #0f766e;")
+        image_layout.addWidget(self.image_details)
         root.addWidget(image_box)
 
         layer_box = QGroupBox("2. Vector layers")
@@ -122,6 +128,10 @@ class UrbanPortraitDock(QDockWidget):
         self.frame_label = QLabel("Frame: not set (canvas extent will be used)")
         self.frame_label.setWordWrap(True)
         frame_layout.addWidget(self.frame_label)
+        aspect_note = QLabel("The frame is automatically fitted to the uploaded picture ratio.")
+        aspect_note.setWordWrap(True)
+        aspect_note.setStyleSheet("color: #64748b;")
+        frame_layout.addWidget(aspect_note)
         root.addWidget(frame_box)
 
         style_box = QGroupBox("4. Art direction")
@@ -195,6 +205,7 @@ class UrbanPortraitDock(QDockWidget):
     def _connect_signals(self) -> None:
         self.browse_button.clicked.connect(self._choose_image)
         self.refresh_layers_button.clicked.connect(self._refresh_layers)
+        self.layer_list.itemSelectionChanged.connect(self._update_controls)
         self.active_button.clicked.connect(self._select_active)
         self.all_button.clicked.connect(self.layer_list.selectAll)
         self.canvas_frame_button.clicked.connect(self._use_canvas_frame)
@@ -209,13 +220,62 @@ class UrbanPortraitDock(QDockWidget):
         self.engine.progress.connect(self._set_progress)
         self.canvas.extentsChanged.connect(self._schedule_live)
         project = QgsProject.instance()
-        project.layersAdded.connect(lambda _layers: self._refresh_layers())
-        project.layersRemoved.connect(lambda _ids: self._refresh_layers())
+        project.layersAdded.connect(self._project_layers_changed)
+        project.layersRemoved.connect(self._project_layers_changed)
+        self.follow_canvas.toggled.connect(self._follow_canvas_changed)
         for widget in (self.preset, self.sampling, self.gamma, self.edge, self.opacity,
                        self.max_features, self.auto_contrast, self.invert):
             signal = getattr(widget, "currentTextChanged", None) or getattr(widget, "valueChanged", None) or getattr(widget, "toggled", None)
             if signal is not None:
                 signal.connect(self._style_changed)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        super().resizeEvent(event)
+        self._update_image_preview()
+
+    def _project_layers_changed(self, _layers=None) -> None:
+        self._refresh_layers()
+
+    def _display_loaded_image(self) -> None:
+        if self.engine.profile is None:
+            return
+        profile = self.engine.profile
+        path = Path(profile.path)
+        self.image_path.setText(path.name)
+        self.image_path.setToolTip(str(path))
+        width = profile.source_width
+        height = profile.source_height
+        self.image_details.setText(
+            f"{width} x {height} px - aspect {width / height:.3f}:1 - ratio locked"
+        )
+        self._preview_pixmap = QPixmap.fromImage(profile.image)
+        self._update_image_preview()
+
+    def _update_image_preview(self) -> None:
+        if self._preview_pixmap.isNull() or not hasattr(self, "preview"):
+            return
+        size = self.preview.contentsRect().size()
+        if size.width() <= 1 or size.height() <= 1:
+            return
+        self.preview.setPixmap(
+            self._preview_pixmap.scaled(
+                size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+
+    def _update_controls(self) -> None:
+        if not hasattr(self, "apply_button"):
+            return
+        selected = self.selected_layers()
+        styled = self.engine._styled_layers
+        self.apply_button.setEnabled(self.engine.profile is not None and bool(selected))
+        self.update_button.setEnabled(bool(styled))
+        self.restore_button.setEnabled(bool(styled))
+        self.export_button.setEnabled(
+            len(selected) == 1 and selected[0].id() in styled
+        )
 
     def selected_layers(self) -> list[QgsVectorLayer]:
         project = QgsProject.instance()
@@ -253,7 +313,7 @@ class UrbanPortraitDock(QDockWidget):
 
     def _choose_image(self) -> None:
         path, _selected_filter = QFileDialog.getOpenFileName(
-            self, "Choose portrait image", "", "Images (*.png *.jpg *.jpeg *.tif *.tiff *.webp *.bmp)"
+            self, "Upload portrait picture", "", "Images (*.png *.jpg *.jpeg *.tif *.tiff *.webp *.bmp)"
         )
         if not path:
             return
@@ -262,10 +322,10 @@ class UrbanPortraitDock(QDockWidget):
         except (ValueError, OSError) as exc:
             self._set_status(str(exc), error=True)
             return
-        self.image_path.setText(path)
-        pixmap = QPixmap.fromImage(self.engine.profile.image)
-        self.preview.setPixmap(pixmap.scaled(300, 180, Qt.AspectRatioMode.KeepAspectRatio,
-                                             Qt.TransformationMode.SmoothTransformation))
+        self._display_loaded_image()
+        if self.engine.bounds is not None:
+            self._show_frame(self.engine.bounds)
+        self._update_controls()
         self._write_project_state()
 
     def _use_canvas_frame(self) -> None:
@@ -278,10 +338,10 @@ class UrbanPortraitDock(QDockWidget):
 
     def _accept_frame(self, rectangle: QgsRectangle) -> None:
         self.engine.set_bounds(rectangle)
-        self._show_frame(rectangle)
+        self._show_frame(self.engine.bounds)
         self.request_unset_tool.emit(self.frame_tool)
         self._write_project_state()
-        self._set_status("Geographic portrait frame set.")
+        self._set_status("Geographic portrait frame set with the picture aspect ratio preserved.")
 
     def _show_frame(self, rectangle: QgsRectangle) -> None:
         self._frame_band.setToGeometry(QgsGeometry.fromRect(rectangle), None)
@@ -313,9 +373,13 @@ class UrbanPortraitDock(QDockWidget):
         except (ValueError, RuntimeError) as exc:
             self._set_status(str(exc), error=True)
             return
+        self._update_controls()
         self._write_project_state()
 
     def _manual_update(self) -> None:
+        if not self.engine._styled_layers:
+            self._set_status("Create a portrait before requesting an update.", error=True)
+            return
         self.engine.options = self._options()
         if self.follow_canvas.isChecked():
             self.engine.set_bounds(self.canvas.extent())
@@ -325,10 +389,24 @@ class UrbanPortraitDock(QDockWidget):
         self._write_project_state()
 
     def _style_changed(self, _value=None) -> None:
+        if self._restoring_state:
+            return
         self.engine.options = self._options()
-        self.engine.restyle()
-        if self.live.isChecked():
+        if self.engine._styled_layers:
+            self.engine.restyle()
+        if self.live.isChecked() and self.engine._styled_layers:
             self._live_timer.start()
+        self._write_project_state()
+
+    def _follow_canvas_changed(self, enabled: bool) -> None:
+        if self._restoring_state:
+            return
+        if enabled and self.engine.profile is not None:
+            self.engine.set_bounds(self.canvas.extent())
+            self._show_frame(self.engine.bounds)
+            if self.engine._styled_layers:
+                self._live_timer.start()
+        self._write_project_state()
 
     def _schedule_live(self) -> None:
         if self.live.isChecked():
@@ -344,6 +422,7 @@ class UrbanPortraitDock(QDockWidget):
     def _restore(self) -> None:
         selected = {layer.id() for layer in self.selected_layers()}
         self.engine.restore(selected or None)
+        self._update_controls()
 
     def _export_qml(self) -> None:
         layers = self.selected_layers()
@@ -371,10 +450,17 @@ class UrbanPortraitDock(QDockWidget):
             self.iface.messageBar().pushWarning(TITLE, text)
 
     def _write_project_state(self) -> None:
+        if self._restoring_state:
+            return
         bounds = self.engine.bounds
+        container = self.engine.frame_container
         state = {
             "image": self.engine.profile.path if self.engine.profile else "",
             "bounds": [bounds.xMinimum(), bounds.yMinimum(), bounds.xMaximum(), bounds.yMaximum()] if bounds else [],
+            "frame_container": [
+                container.xMinimum(), container.yMinimum(),
+                container.xMaximum(), container.yMaximum(),
+            ] if container else [],
             "preset": self.preset.currentText(), "sampling": self.sampling.currentText(),
             "gamma": self.gamma.value(), "edge": self.edge.value(), "opacity": self.opacity.value(),
             "invert": self.invert.isChecked(), "auto_contrast": self.auto_contrast.isChecked(),
@@ -386,16 +472,14 @@ class UrbanPortraitDock(QDockWidget):
         raw, ok = QgsProject.instance().readEntry("zero2urbanportrait", "state", "")
         if not ok or not raw:
             return
+        self._restoring_state = True
         try:
             state = json.loads(raw)
             image = state.get("image", "")
             if image and Path(image).is_file():
                 self.engine.set_image(image)
-                self.image_path.setText(image)
-                pixmap = QPixmap.fromImage(self.engine.profile.image)
-                self.preview.setPixmap(pixmap.scaled(300, 180, Qt.AspectRatioMode.KeepAspectRatio,
-                                                     Qt.TransformationMode.SmoothTransformation))
-            bounds = state.get("bounds", [])
+                self._display_loaded_image()
+            bounds = state.get("frame_container", state.get("bounds", []))
             if len(bounds) == 4:
                 self.engine.set_bounds(QgsRectangle(*bounds))
                 self._show_frame(self.engine.bounds)
@@ -410,11 +494,18 @@ class UrbanPortraitDock(QDockWidget):
             self.follow_canvas.setChecked(bool(state.get("follow_canvas", False)))
         except (TypeError, ValueError, json.JSONDecodeError):
             self._set_status("Saved portrait settings could not be restored.", error=True)
+        finally:
+            self._restoring_state = False
 
     def dispose(self) -> None:
         self._live_timer.stop()
         with suppress(TypeError, RuntimeError):
             self.canvas.extentsChanged.disconnect(self._schedule_live)
+        project = QgsProject.instance()
+        with suppress(TypeError, RuntimeError):
+            project.layersAdded.disconnect(self._project_layers_changed)
+        with suppress(TypeError, RuntimeError):
+            project.layersRemoved.disconnect(self._project_layers_changed)
         self.request_unset_tool.emit(self.frame_tool)
         self.frame_tool.dispose()
         self._frame_band.reset(QgsWkbTypes.GeometryType.PolygonGeometry)

@@ -2,6 +2,19 @@
 
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.1] - 2026-07-20
+
+### Fixed
+
+- Preserve every uploaded picture's original aspect ratio in canvas, drawn, live, and restored frames.
+- Keep the studio visible on its first toolbar activation.
+
+### Changed
+
+- Clarified the upload and ratio-lock workflow, added image dimensions, and made the preview responsive.
+- Disable render, update, restore, and QML actions until their required inputs are available.
+- Disconnect project layer signals cleanly when the dock is disposed.
+
 ## [0.2.0] - 2026-07-20
 
 ### Added

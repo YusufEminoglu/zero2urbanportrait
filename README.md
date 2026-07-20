@@ -7,6 +7,7 @@
 - Two data workflows: built-in OSM acquisition or any existing project vector layer.
 - One-click OSM Standard basemap plus safe small-area roads/buildings/land-use download.
 - Map-locked or screen-locked portrait masks with an optional frame overlay.
+- Distortion-free picture fitting that preserves the original aspect ratio in every frame mode.
 - Fast center, balanced multi-point, and high-quality geometry sampling.
 - Live debounced updates while panning and zooming.
 - Five art presets: Ink, Neon, Blueprint, Sepia, and Negative.
