@@ -2,6 +2,21 @@
 
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.3] - 2026-08-03
+
+### Changed
+- Replace the hardcoded stylesheet with palette-derived colour tokens so the dock
+  stays readable under QGIS light, dark and high-contrast themes. The hero card
+  keeps its intentional dark branding; all other surfaces follow the active Qt
+  palette.
+- The dock now listens for PaletteChange and re-applies the theme automatically.
+- Status-bar error colours use palette-aware tokens instead of assuming a light
+  background.
+
+### Added
+- `dialogs/theme.py` with WCAG contrast-ratio checks, palette-aware colour tokens,
+  and `apply_adaptive_theme()` entry point.
+
 ## [0.2.2] - 2026-07-20
 
 ### Changed
