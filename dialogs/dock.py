@@ -5,7 +5,7 @@ import json
 from contextlib import suppress
 from pathlib import Path
 
-from qgis.PyQt.QtCore import Qt, QTimer, pyqtSignal
+from qgis.PyQt.QtCore import QEvent, Qt, QTimer, pyqtSignal
 from qgis.PyQt.QtGui import QColor, QPixmap
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
@@ -36,6 +36,7 @@ from qgis.gui import QgsRubberBand
 from ..core.engine import PortraitEngine, RenderOptions
 from ..core.presets import PRESETS
 from ..tools.frame_tool import FrameMapTool
+from .theme import apply_adaptive_theme, dock_color_tokens
 
 
 TITLE = "02Urban Portrait"
@@ -304,39 +305,14 @@ class UrbanPortraitDock(QDockWidget):
         return layout
 
     def _apply_theme(self) -> None:
-        self.setStyleSheet("""
-            QWidget#studioShell, QWidget#tabPage { background: #f4f7fb; color: #1e293b; }
-            QFrame#heroCard { background: #0f172a; border: 1px solid #1e293b; border-radius: 14px; }
-            QLabel#heroTitle { color: #f8fafc; font-size: 18px; font-weight: 700; }
-            QLabel#heroSubtitle { color: #94a3b8; font-size: 11px; }
-            QLabel#localBadge { background: #164e63; color: #67e8f9; border-radius: 9px; padding: 4px 8px; font-size: 9px; font-weight: 700; }
-            QLabel#workflowStrip { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; border-radius: 8px; padding: 8px; font-size: 10px; font-weight: 700; }
-            QTabWidget::pane { border: 1px solid #dbe4ef; border-radius: 10px; background: #f4f7fb; top: -1px; }
-            QTabBar::tab { background: #e8eef6; color: #64748b; border: 1px solid #dbe4ef; padding: 9px 18px; min-width: 72px; font-weight: 600; }
-            QTabBar::tab:first { border-top-left-radius: 8px; }
-            QTabBar::tab:last { border-top-right-radius: 8px; }
-            QTabBar::tab:selected { background: #ffffff; color: #0e7490; border-bottom-color: #ffffff; }
-            QGroupBox { background: #ffffff; border: 1px solid #dbe4ef; border-radius: 11px; margin-top: 13px; padding: 12px 9px 9px 9px; font-weight: 700; color: #0f172a; }
-            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; color: #334155; }
-            QLabel#imagePreview { background: #091225; color: #94a3b8; border: 1px solid #1e293b; border-radius: 9px; }
-            QLabel#mutedHint { color: #64748b; font-size: 10px; }
-            QLabel#successHint { color: #0f766e; background: #ecfdf5; border-radius: 6px; padding: 5px 7px; font-size: 10px; }
-            QLabel#tabIntro { color: #475569; background: #eef6ff; border: 1px solid #dbeafe; border-radius: 8px; padding: 9px; }
-            QListWidget, QComboBox, QSpinBox, QDoubleSpinBox { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px; selection-background-color: #cffafe; selection-color: #164e63; }
-            QListWidget::item { padding: 5px; border-radius: 4px; }
-            QListWidget::item:selected { background: #cffafe; color: #155e75; }
-            QPushButton { background: #ffffff; color: #334155; border: 1px solid #cbd5e1; border-radius: 7px; padding: 7px 10px; font-weight: 600; }
-            QPushButton:hover { background: #f0f9ff; border-color: #38bdf8; color: #075985; }
-            QPushButton:pressed { background: #e0f2fe; }
-            QPushButton:disabled { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }
-            QPushButton#accentButton { background: #ecfeff; color: #0e7490; border-color: #67e8f9; }
-            QPushButton#primaryButton { background: #0891b2; color: #ffffff; border-color: #0891b2; padding: 9px 13px; font-weight: 700; }
-            QPushButton#primaryButton:hover { background: #0e7490; border-color: #0e7490; }
-            QCheckBox { color: #334155; spacing: 7px; padding: 2px; }
-            QProgressBar { background: #dbe4ef; border: none; border-radius: 2px; }
-            QProgressBar::chunk { background: #06b6d4; border-radius: 2px; }
-            QLabel#statusCard { color: #475569; background: #ffffff; border: 1px solid #dbe4ef; border-radius: 8px; padding: 8px 10px; }
-        """)
+        root = self.widget()
+        if root is None or getattr(self, "_theme_refreshing", False):
+            return
+        self._theme_refreshing = True
+        try:
+            apply_adaptive_theme(root)
+        finally:
+            self._theme_refreshing = False
 
     def _connect_signals(self) -> None:
         self.tabs.currentChanged.connect(self._tab_changed)
@@ -591,13 +567,17 @@ class UrbanPortraitDock(QDockWidget):
     def _set_status(self, text: str, error: bool = False) -> None:
         self.status.setText(text)
         if error:
+            t = dock_color_tokens()
             self.status.setStyleSheet(
-                "color: #b91c1c; background: #fff1f2; border: 1px solid #fecdd3; "
+                f"color: {t['error_text']}; background: {t['error_bg']}; "
+                f"border: 1px solid {t['error_border']}; "
                 "border-radius: 8px; padding: 8px 10px;"
             )
         else:
+            t = dock_color_tokens()
             self.status.setStyleSheet(
-                "color: #475569; background: #ffffff; border: 1px solid #dbe4ef; "
+                f"color: {t['text']}; background: {t['card']}; "
+                f"border: 1px solid {t['border']}; "
                 "border-radius: 8px; padding: 8px 10px;"
             )
         if error:
@@ -650,6 +630,14 @@ class UrbanPortraitDock(QDockWidget):
             self._set_status("Saved portrait settings could not be restored.", error=True)
         finally:
             self._restoring_state = False
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() in (
+            QEvent.Type.PaletteChange,
+            QEvent.Type.ApplicationPaletteChange,
+        ):
+            self._apply_theme()
 
     def dispose(self) -> None:
         self._live_timer.stop()

@@ -3,7 +3,7 @@ name=02Urban Portrait - City as a Face
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Create live urban portraits from built-in OSM downloads or project vectors, with luminance styling and print-ready export.
-version=0.2.2
+version=0.2.3
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
@@ -23,5 +23,9 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
+    0.2.3 - Palette-aware adaptive theme.
+        Changed: replace the hardcoded stylesheet with palette-derived colour tokens so the dock stays readable under QGIS light, dark and high-contrast themes. The hero card keeps its intentional dark branding; all other surfaces follow the active Qt palette. The dock now listens for PaletteChange and re-applies the theme automatically.
+    0.2.2 - Studio rebuild with integrated data-source and export panels; frame map-tool for drawing the geographic mask; project-state restoration.
+    0.2.1 - Fix portrait aspect-ratio lock: enforce the precise image ratio instead of the approximate bounding-box fit.
     0.2.0 - Built-in OSM acquisition, safer line weights, optional frame overlay, light icon, and PNG/PDF/SVG export.
     0.1.0 - Initial release with live luminance sampling, smart masks, five artistic presets, reversible renderers, and viewport-aware updates.
