@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.6] - 2026-08-07
+
+- Added online user manual link (https://yusufeminoglu.github.io/zero2urbanportrait/) and GitHub repository star call-to-action.
+
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [0.2.3] - 2026-08-03
