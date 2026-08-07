@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02Urban Portrait &mdash; Reference Manual</title>
+<style>
+:root {--bg:#fafaf8;--sidebar-bg:#f3f3f0;--text:#1a1a1a;--muted:#5a5a55;--accent:#2a6e5e;--border:#d8d5ce;--card-bg:#fff;--link:#1a6e5e;--code-bg:#edf4f2;--search-bg:#fff}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;display:flex;min-height:100vh}
+#sidebar{width:270px;min-width:270px;background:var(--sidebar-bg);border-right:1px solid var(--border);padding:24px 20px;position:sticky;top:0;height:100vh;overflow-y:auto}
+#sidebar h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px}
+#search{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--search-bg);margin-bottom:20px}
+#sidebar nav a{display:block;padding:5px 0;font-size:13px;color:var(--link);text-decoration:none}
+#sidebar nav a:hover{text-decoration:underline}
+#sidebar nav a.sub{padding-left:14px;font-size:12px}
+#main{flex:1;padding:40px 48px;max-width:860px}
+h1{font-size:28px;font-weight:700;color:var(--accent);margin-bottom:4px}
+h1+p{color:var(--muted);margin-bottom:32px}
+h2{font-size:20px;font-weight:600;color:var(--accent);margin:36px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--border)}
+h3{font-size:16px;font-weight:600;color:var(--text);margin:20px 0 8px}
+p,li{font-size:14px;color:var(--text)}
+p{margin-bottom:10px}
+.card{background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:14px}
+.card h4{font-size:14px;font-weight:600;color:var(--accent);margin-bottom:6px}
+ul{margin:4px 0 10px 20px}
+li{margin-bottom:3px}
+code{font-family:Consolas,'Courier New',monospace;background:var(--code-bg);padding:1px 6px;border-radius:3px;font-size:13px}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th,td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+th{background:var(--code-bg);font-weight:600}
+.refs{font-size:12px;color:var(--muted)}
+.refs a{color:var(--link)}
+@media(max-width:760px){body{flex-direction:column}#sidebar{width:100%;min-width:auto;height:auto;position:static;border-right:none;border-bottom:1px solid var(--border)}#main{padding:24px}}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<aside id="sidebar">
+  <input type="text" id="search" placeholder="Search manual&hellip;" autocomplete="off">
+  <h2>Contents</h2>
+  <nav id="toc">
+    <a href="#overview">Overview</a>
+    <a href="#features" class="sub">Features</a>
+    <a href="#presets" class="sub">Art Presets</a>
+    <a href="#sampling" class="sub">Sampling Engine</a>
+    <a href="#params" class="sub">Controls</a>
+    <a href="#workflow" class="sub">Workflow</a>
+    <a href="#technical" class="sub">Technical Notes</a>
+    <a href="#literature">Literature</a>
+  </nav>
+</aside>
+<main id="main">
+<h1>02Urban Portrait</h1>
+<p>City as a Face &mdash; generative cartographic portrait studio &bull; v0.2.3</p>
+
+<h2 id="overview">1. Overview</h2>
+<p>02Urban Portrait transforms urban vector infrastructure (roads, buildings, points) into optical portraits. The user loads a portrait image, maps it to a geographic frame, and the plugin styles vector features by luminance values sampled from the image pixels. This is a generative, non-destructive cartographic technique&mdash;no source geometry or attributes are ever modified. The plugin applies a rule-based renderer with five luminance tone bands, each mapped to per-preset colours, line widths, and transparencies.</p>
+<p>The plugin is a three-tab dock: <strong>Set up</strong> (data acquisition and frame definition), <strong>Portrait</strong> (art-direction controls and rendering), and <strong>Export</strong> (format export and style restoration). A bonus panel in the Set up tab provides a built-in OSM downloader for one-click city data acquisition.</p>
+
+<h2 id="features">2. Feature Documentation</h2>
+
+<h3>2.1 Luminance-Based Styling Engine</h3>
+<div class="card">
+  <h4>Image-to-Vector Sampling Pipeline</h4>
+  <ol>
+    <li><strong>Image loading:</strong> Supports PNG, JPG, JPEG, TIFF, TIF, WebP, BMP. Auto-scales images larger than 1800&times;1800 px. Preserves EXIF orientation via <code>QImageReader.setAutoTransform(True)</code>.</li>
+    <li><strong>Geographic frame:</strong> The image aspect ratio is fitted to a geographic rectangle (canvas extent or user-drawn frame) with letterbox/pillarbox centring and no stretching. Can be screen-locked (frame follows pan/zoom) or fixed to geographic coordinates.</li>
+    <li><strong>Sampling:</strong> For each visible feature within the frame, the plugin computes sampling points by geometry type and sampling mode, maps world coordinates to normalised image coordinates (flipping Y), samples luminance from the downscaled image, and applies auto-contrast stretch, gamma correction, optional inversion, and optional edge emphasis.</li>
+    <li><strong>Rendering:</strong> A <code>QgsRuleBasedRenderer</code> with 5 tone rules applies per-preset colours, line widths (deepest tones widest, lightest tones thinnest), and transparencies. A custom QGIS expression function <code>zero2portrait_luma(layer_id, feature_id)</code> reads from an in-process cache to drive the rule filters.</li>
+  </ol>
+</div>
+
+<h3>2.2 Three Sampling Modes</h3>
+<table>
+  <tr><th>Mode</th><th>Line Sample Points</th><th>Polygon Sample Points</th></tr>
+  <tr><td>Fast</td><td>1 (midpoint)</td><td>1 (point on surface)</td></tr>
+  <tr><td>Balanced</td><td>3 (20%, 50%, 80%)</td><td>2 (point on surface + centroid)</td></tr>
+  <tr><td>High Quality</td><td>5 (10%, 30%, 50%, 70%, 90%)</td><td>2 (point on surface + centroid)</td></tr>
+</table>
+
+<h3>2.3 Five Tone Rules</h3>
+<p>Five equal luminance intervals defined by <code>TONE_BREAKS = (0, 52, 104, 156, 208, 256)</code>. Each gets per-preset colour, line width (descending from ~1.55 mm for darkest to ~0.10 mm for lightest), and opacity. When <code>hide_highlights</code> is active, the top band ("Paper") has opacity 0.0, letting the background show through&mdash;this is how the Ink Portrait and Sepia Blocks presets create white-space faces.</p>
+
+<h3>2.4 Rendering Enhancements</h3>
+<div class="card">
+  <h4>Visual Quality Details</h4>
+  <p><strong>Line underlay:</strong> A darker, wider base line (+0.35 mm, darkened by 250) is placed 2 layers behind the main line to make it pop from the background.</p>
+  <p><strong>Polygon fills:</strong> Semi-transparent fills (deepest tones alpha 225, medium alpha 150) with thin outlines.</p>
+  <p><strong>Point symbols:</strong> Small circles with outlines.</p>
+  <p><strong>Line caps and joins:</strong> All lines use round cap and round join styles for organic, hand-drawn quality.</p>
+</div>
+
+<h3>2.5 Built-In OSM Downloader</h3>
+<div class="card">
+  <h4>One-Click City Data Acquisition</h4>
+  <p>Adds an XYZ tile OpenStreetMap basemap (with duplicate detection). Downloads the current canvas view via a single Overpass API query (with custom User-Agent header). Validates that viewport is within 6 km &times; 6 km and 25 km<sup>2</sup>. Parses the OSM XML response through QGIS/GDAL OGR driver, splitting into three specialised memory layers: OSM Roads (MultiLineString, filtered by <code>highway</code> tag), OSM Buildings (MultiPolygon, filtered by <code>building</code> tag), and OSM Land Use (MultiPolygon, filtered by <code>landuse</code> tag). Each layer carries <code>osm_id</code>, <code>name</code>, and <code>class</code> fields. Tags are extracted from the <code>other_tags</code> HSTORE string via regex.</p>
+</div>
+
+<h2 id="presets">3. Art Presets</h2>
+<table>
+  <tr><th>Preset</th><th>Background</th><th>Colour Palette</th><th>Character</th></tr>
+  <tr><td><strong>Ink Portrait</strong></td><td>#f5f1e8 (warm paper)</td><td>Dark ink tones; widest lines for shadows, highlights hidden</td><td>Classic pen-and-ink portrait</td></tr>
+  <tr><td><strong>Neon Night</strong></td><td>#050816 (deep space)</td><td>Pink / purple / cyan / mint; all bands visible</td><td>Cyberpunk / synthwave aesthetic</td></tr>
+  <tr><td><strong>Blueprint</strong></td><td>#082f49 (deep navy)</td><td>Cyan / teal gradient (reversed); all bands visible</td><td>Architectural blueprint</td></tr>
+  <tr><td><strong>Sepia Blocks</strong></td><td>#f1e3c6 (warm cream)</td><td>Brown / sepia tones; highlights hidden</td><td>Antique map / vintage engraving</td></tr>
+  <tr><td><strong>Negative City</strong></td><td>#07071a (deep navy)</td><td>Indigo / violet gradient (reversed); all bands visible</td><td>Film negative / X-ray aesthetic</td></tr>
+</table>
+
+<h2 id="sampling">4. Image Processing Pipeline</h2>
+<div class="card">
+  <h4>Luminance Enhancement Parameters</h4>
+  <ul>
+    <li><strong>Gamma correction</strong> (\(\gamma\), range 0.2&ndash;3.0, default 1.0): Applies \(L' = 255 \times (L/255)^{1/\gamma}\) after contrast stretch. Values &lt;1.0 lighten mid-tones; values &gt;1.0 darken them.</li>
+    <li><strong>Auto-contrast stretch</strong> (default on): Computes robust 1st and 99th percentile luminance boundaries from a 256-bin histogram and stretches the image to full 0&ndash;255 range.</li>
+    <li><strong>Invert</strong> (default off): Reverses the luminance scale (light becomes dark, dark becomes light).</li>
+    <li><strong>Edge emphasis</strong> (range 0.0&ndash;1.0, default 0.25): Computes per-pixel edge intensity via neighbour difference and darkens luminance proportionally. At 0.0, edges have no extra emphasis; at 1.0, strong edges become fully black.</li>
+  </ul>
+</div>
+
+<h2 id="params">5. Controls Summary</h2>
+<table>
+  <tr><th>Tab</th><th>Control</th><th>Description</th></tr>
+  <tr><td>Set up</td><td>Add OSM basemap</td><td>Inserts a live XYZ tile layer</td></tr>
+  <tr><td>Set up</td><td>Download this view</td><td>Fetches OSM roads, buildings, and land use for the viewport</td></tr>
+  <tr><td>Set up</td><td>Upload picture</td><td>Loads a portrait image (PNG, JPG, TIFF, WebP, BMP)</td></tr>
+  <tr><td>Set up</td><td>Vector canvas</td><td>Multi-select QListWidget of all project vector layers</td></tr>
+  <tr><td>Set up</td><td>Use canvas extent / Draw frame</td><td>Defines the geographic portrait frame</td></tr>
+  <tr><td>Set up</td><td>Screen-locked mask</td><td>When on, frame moves with pan/zoom; off = fixed geographic</td></tr>
+  <tr><td>Portrait</td><td>Preset</td><td>Dropdown: Ink Portrait, Neon Night, Blueprint, Sepia Blocks, Negative City</td></tr>
+  <tr><td>Portrait</td><td>Sampling</td><td>Dropdown: Fast, Balanced, High Quality</td></tr>
+  <tr><td>Portrait</td><td>Gamma</td><td>QDoubleSpinBox: 0.2&ndash;3.0, step 0.1</td></tr>
+  <tr><td>Portrait</td><td>Edge emphasis</td><td>QDoubleSpinBox: 0.0&ndash;1.0, step 0.1</td></tr>
+  <tr><td>Portrait</td><td>Layer opacity</td><td>QDoubleSpinBox: 0.05&ndash;1.0, step 0.05</td></tr>
+  <tr><td>Portrait</td><td>Feature limit</td><td>QSpinBox: 500&ndash;100,000, step 500, default 10,000</td></tr>
+  <tr><td>Portrait</td><td>Auto contrast / Invert</td><td>Checkboxes for percentile stretch and luminance inversion</td></tr>
+  <tr><td>Portrait</td><td>Live update</td><td>Checkbox: re-samples on pan/zoom with 240 ms debounce</td></tr>
+  <tr><td>Export</td><td>Format / DPI / Export</td><td>PNG (72&ndash;1200 dpi), PDF, or SVG; saves via file dialog</td></tr>
+  <tr><td>Export</td><td>Restore styles / Export QML</td><td>Returns layers to original renderers; saves one layer's style as .qml</td></tr>
+</table>
+
+<h2 id="workflow">6. Workflow Guide</h2>
+<ol>
+  <li>Click the 02Urban Portrait toolbar icon. The dock opens on the right.</li>
+  <li>On the <strong>Set up</strong> tab, add city data. Use the built-in OSM downloader (Add basemap &rarr; pan to a neighbourhood &rarr; Download this view) or select existing project vector layers.</li>
+  <li>Upload a portrait image via the Upload button. A preview thumbnail appears with filename, dimensions, and aspect ratio.</li>
+  <li>Define the portrait position: either "Use canvas extent" or "Draw frame" (drag a rectangle on the map). Optionally enable "Screen-locked mask" for frame-following.</li>
+  <li>Select vector layers to stylise from the list.</li>
+  <li>Switch to the <strong>Portrait</strong> tab. Choose an art preset, adjust gamma, edge emphasis, and feature limit.</li>
+  <li>Click <em>Create portrait</em>. The layers are restyled in place with the rule-based renderer. Pan and zoom with live update enabled to see the portrait react.</li>
+  <li>Switch to the <strong>Export</strong> tab to export as PNG, PDF, or SVG. Use "Restore original styles" to undo all changes. Use "Export QML" to save a layer's portrait style.</li>
+</ol>
+
+<h2 id="technical">7. Technical Notes</h2>
+<ul>
+  <li><strong>Non-destructive operation:</strong> Original renderers are cloned and stored before styling is applied. All operations are reversible via Restore. No source geometry or attributes are modified.</li>
+  <li><strong>Custom expression function:</strong> <code>zero2portrait_luma(layer_id, feature_id)</code> is registered at plugin load and removed at unload. This function reads from an in-process dictionary keyed by <code>(layer_id, feature_id)</code>.</li>
+  <li><strong>Live update (240 ms debounce):</strong> A <code>QTimer</code> limits re-sampling to once per 240 ms during pan/zoom, controlled by the <code>max_features</code> cap (default 10,000).</li>
+  <li><strong>Adaptive theme:</strong> All UI colours derive from the active <code>QPalette</code> with WCAG contrast compliance. The hero card intentionally remains dark for brand identity. Cyan accent switches between <code>#06B6D4</code> (dark theme) and <code>#0891B2</code> (light theme).</li>
+  <li><strong>Project state persistence:</strong> Full settings (image path, frame coords, preset, gamma, edge, opacity, invert, auto-contrast, max features, follow-canvas) serialised as JSON and stored in the QGIS project under key <code>zero2urbanportrait/state</code>. Re-opening restores state.</li>
+  <li><strong>Export pipeline:</strong> Uses <code>QgsPrintLayout</code> with a single map item filling the page. Page width scales to canvas aspect ratio (120&ndash;420 mm). SVG export uses <code>forceVectorOutput = True</code>.</li>
+  <li><strong>QGIS compatibility:</strong> 3.28 through 4.99. Zero external Python dependencies.</li>
+</ul>
+
+<h2 id="literature">8. Literature</h2>
+<ol class="refs">
+  <li>Wood, D. (2010). <em>Rethinking the Power of Maps</em>. Guilford Press.</li>
+  <li>Harley, J. B. (1989). Deconstructing the map. <em>Cartographica</em>, 26(2), 1&ndash;20. <a href="https://doi.org/10.3138/E635-7827-1757-9T53">DOI: 10.3138/E635-7827-1757-9T53</a></li>
+  <li>Schumann, H. &amp; Mueller, W. (2000). <em>Visualisierung: Grundlagen und allgemeine Methoden</em>. Springer.</li>
+  <li>Brewer, C. A. (2005). <em>Designing Better Maps: A Guide for GIS Users</em>. ESRI Press.</li>
+  <li>Tufte, E. R. (1983). <em>The Visual Display of Quantitative Information</em>. Graphics Press.</li>
+</ol>
+</main>
+<script>
+(function(){
+  var inp=document.getElementById('search');
+  var main=document.getElementById('main');
+  if(!inp||!main)return;
+  var all=main.querySelectorAll('h2,h3,p,li,td');
+  inp.addEventListener('input',function(){
+    var q=inp.value.trim().toLowerCase();
+    all.forEach(function(el){el.classList.remove('hidden');});
+    if(!q)return;
+    var sections=main.querySelectorAll('h2');
+    sections.forEach(function(h){
+      var next=h.nextElementSibling;
+      var keep=h.textContent.toLowerCase().indexOf(q)!==-1;
+      while(next && next.tagName!=='H2'){
+        if(next.textContent.toLowerCase().indexOf(q)!==-1)keep=true;
+        next=next.nextElementSibling;
+      }
+      if(!keep){
+        next=h.nextElementSibling;
+        while(next && next.tagName!=='H2'){next.classList.add('hidden');next=next.nextElementSibling;}
+        h.classList.add('hidden');
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
