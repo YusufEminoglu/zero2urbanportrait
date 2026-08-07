@@ -3,6 +3,11 @@
 
 02Urban Portrait turns roads, building footprints, points, and other vector networks into a live optical portrait inside QGIS. A chosen image is mapped to a geographic frame; each visible feature samples the image luminance and receives a reversible rule-based style. No source geometry or attribute is changed.
 
+## 📖 Documentation
+
+**[Comprehensive Academic Reference Manual](https://yusufeminoglu.github.io/zero2urbanportrait/)** — complete documentation of every feature, parameter, and workflow. Hosted on GitHub Pages.
+
+
 ## Highlights
 
 - Two data workflows: built-in OSM acquisition or any existing project vector layer.
