@@ -1,4 +1,5 @@
 # 02Urban Portrait - City as a Face
+[![Documentation](https://img.shields.io/badge/📖_Reference_Manual-13a0a0)](https://yusufeminoglu.github.io/zero2urbanportrait/)
 
 02Urban Portrait turns roads, building footprints, points, and other vector networks into a live optical portrait inside QGIS. A chosen image is mapped to a geographic frame; each visible feature samples the image luminance and receives a reversible rule-based style. No source geometry or attribute is changed.
 
