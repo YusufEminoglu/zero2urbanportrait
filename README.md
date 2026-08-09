@@ -50,3 +50,10 @@ Automatic contrast and edge masks use local image statistics. Images never leave
 ## Compatibility
 
 QGIS 3.28+ and QGIS 4.x. License: GPL-3.0-or-later.
+
+## Data attribution
+
+Built-in downloads use OpenStreetMap data under the [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+Keep [OpenStreetMap attribution](https://www.openstreetmap.org/copyright) with
+downloaded layers and published exports. The basemap and Overpass service
+conditions are documented in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
