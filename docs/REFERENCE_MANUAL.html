@@ -33,6 +33,9 @@ th{background:var(--code-bg);font-weight:600}
 .refs a{color:var(--link)}
 @media(max-width:760px){body{flex-direction:column}#sidebar{width:100%;min-width:auto;height:auto;position:static;border-right:none;border-bottom:1px solid var(--border)}#main{padding:24px}}
 .hidden{display:none}
+
+.video-embed { position: relative; width: 100%; padding-top: 56.25%; margin: 4px 0 28px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border, #ccc); background: #000; }
+.video-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 </style>
 </head>
 <body>
@@ -53,6 +56,10 @@ th{background:var(--code-bg);font-weight:600}
 <main id="main">
 <h1>02Urban Portrait</h1>
 <p>City as a Face &mdash; generative cartographic portrait studio &bull; v0.2.3</p>
+<div class="video-embed">
+  <iframe src="https://www.youtube-nocookie.com/embed/hgn8p2Dns-A" title="02Urban Portrait &mdash; video walkthrough" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+</div>
+
 
 <h2 id="overview">1. Overview</h2>
 <p>02Urban Portrait transforms urban vector infrastructure (roads, buildings, points) into optical portraits. The user loads a portrait image, maps it to a geographic frame, and the plugin styles vector features by luminance values sampled from the image pixels. This is a generative, non-destructive cartographic technique&mdash;no source geometry or attributes are ever modified. The plugin applies a rule-based renderer with five luminance tone bands, each mapped to per-preset colours, line widths, and transparencies.</p>
