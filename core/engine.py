@@ -360,3 +360,30 @@ class PortraitEngine(QObject):
             "outline_color": QColor(color).darker(180).name(),
             "size": str(max(0.4, width * 1.8)),
         })
+
+    def generate_halftone(self, grid_size: int = 60):
+        """Generate variable-radius halftone stippling memory layer from current portrait & extent."""
+        if self.profile is None:
+            raise ValueError("Load an image first.")
+        if self.bounds is None:
+            self.set_bounds(self.canvas.extent())
+        from .stipple import generate_stipple_layer
+        crs_auth_id = self.canvas.mapSettings().destinationCrs().authid()
+        bounds_tuple = (
+            self.bounds.xMinimum(), self.bounds.yMinimum(),
+            self.bounds.xMaximum(), self.bounds.yMaximum()
+        )
+        layer = generate_stipple_layer(
+            bounds=bounds_tuple,
+            crs_auth_id=crs_auth_id,
+            profile=self.profile,
+            render_options=self.options,
+            grid_cols=grid_size,
+            grid_rows=grid_size,
+            layer_name=f"Urban Portrait Halftone ({self.options.preset})",
+        )
+        if layer is not None and layer.isValid():
+            QgsProject.instance().addMapLayer(layer)
+            self.canvas.refresh()
+            self.message.emit(f"Generated Halftone Stipple layer ({layer.featureCount()} dots).")
+        return layer

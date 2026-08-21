@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0] - 2026-08-21
+
+### Added
+- **Vector Halftone & Stippling Engraving Generator**: Converts sampled portrait luminance into variable-radius dot grids and algorithmic engraving layers.
+- **5 New Master Presets**: Added *Cyberpunk 2077*, *Vintage Engraving*, *Thermal Heatmap*, *Emerald Eco-Map*, and *Nordic Slate* art-direction colorways.
+- **Palette Import/Export**: Portable JSON serialization (`.json`) for custom user colorways and sharing.
+
 ## [0.2.7] - 2026-08-09
 
 - Add a complete OpenStreetMap, tile-service and Overpass API third-party notice.

@@ -3,18 +3,18 @@ name=02Urban Portrait - City as a Face
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Create live urban portraits from built-in OSM downloads or project vectors, with luminance styling and print-ready export.
-version=0.2.7
+version=0.3.0
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
-about=02Urban Portrait transforms vector infrastructure into optical portraits and graphic masks. Load a profile image, map it to a geographic frame, and style roads, buildings, points, or other vector layers from sampled pixel luminance without changing source geometries or attributes. Includes built-in small-area OSM roads/buildings/land-use download, live pan and zoom updates, multi-point sampling, artistic presets, smart masks, reversible styling, and PNG/PDF/SVG export. Online User Manual & Documentation: https://yusufeminoglu.github.io/zero2urbanportrait/ | If you find this plugin helpful, please consider starring the repository on GitHub (https://github.com/YusufEminoglu/zero2urbanportrait)!
+about=02Urban Portrait transforms vector infrastructure into optical portraits, cartographic engravings, and graphic masks. Load a profile image, map it to a geographic frame, and style roads, buildings, points, or other vector layers from sampled pixel luminance without changing source geometries or attributes. Features algorithmic vector stippling & halftone engraving generator, 10 curated artistic colorway presets with JSON import/export, built-in OSM acquisition, live pan and zoom updates, and PNG/PDF/SVG export. Online User Manual & Documentation: https://yusufeminoglu.github.io/zero2urbanportrait/ | If you find this plugin helpful, please consider starring the repository on GitHub (https://github.com/YusufEminoglu/zero2urbanportrait)!
 
 tracker=https://github.com/YusufEminoglu/zero2urbanportrait/issues
 repository=https://github.com/YusufEminoglu/zero2urbanportrait
 homepage=https://yusufeminoglu.github.io/zero2urbanportrait/
 
 category=Vector
-tags=portrait,osm,optical illusion,luminance,cartography,roads,buildings,generative art
+tags=portrait,osm,optical illusion,luminance,cartography,roads,buildings,generative art,halftone,stippling,engraving
 icon=icons/icon.png
 
 experimental=False
@@ -23,6 +23,10 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
+    0.3.0 - Major feature update:
+        Added: Algorithmic Halftone & Vector Stippling Engraving Generator with variable-radius luminance modulation and memory layer creation.
+        Added: 5 new master colorways (Cyberpunk 2077, Vintage Engraving, Thermal Heatmap, Emerald Eco-Map, Nordic Slate).
+        Added: JSON Palette Preset Import and Export system for custom colorway sharing.
     0.2.3 - Palette-aware adaptive theme.
         Changed: replace the hardcoded stylesheet with palette-derived colour tokens so the dock stays readable under QGIS light, dark and high-contrast themes. The hero card keeps its intentional dark branding; all other surfaces follow the active Qt palette. The dock now listens for PaletteChange and re-applies the theme automatically.
     0.2.2 - Studio rebuild with integrated data-source and export panels; frame map-tool for drawing the geographic mask; project-state restoration.

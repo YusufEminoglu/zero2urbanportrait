@@ -34,7 +34,7 @@ from qgis.core import QgsGeometry, QgsProject, QgsRectangle, QgsVectorLayer, Qgs
 from qgis.gui import QgsRubberBand
 
 from ..core.engine import PortraitEngine, RenderOptions
-from ..core.presets import PRESETS
+from ..core.presets import PRESETS, export_presets_json, import_presets_json
 from ..tools.frame_tool import FrameMapTool
 from .theme import apply_adaptive_theme, dock_color_tokens
 
@@ -221,6 +221,15 @@ class UrbanPortraitDock(QDockWidget):
         self.auto_contrast.setChecked(True)
         self.invert = QCheckBox("Invert light and shadow")
         form.addRow("Preset", self.preset)
+        palette_btn_row = QHBoxLayout()
+        self.import_palette_btn = QPushButton("Import JSON…")
+        self.export_palette_btn = QPushButton("Export JSON…")
+        self.import_palette_btn.clicked.connect(self._import_presets)
+        self.export_palette_btn.clicked.connect(self._export_presets)
+        palette_btn_row.addWidget(self.import_palette_btn)
+        palette_btn_row.addWidget(self.export_palette_btn)
+        form.addRow("Palettes", palette_btn_row)
+
         form.addRow("Geometry sampling", self.sampling)
         form.addRow("Gamma", self.gamma)
         form.addRow("Smart edge emphasis", self.edge)
@@ -229,6 +238,28 @@ class UrbanPortraitDock(QDockWidget):
         form.addRow(self.auto_contrast)
         form.addRow(self.invert)
         self.style_layout.addWidget(style_box)
+
+        # ── Vector Stippling & Halftone Studio ────────────────────────
+        stipple_box = QGroupBox("Vector Halftone & Engraving Studio")
+        stipple_layout = QVBoxLayout(stipple_box)
+        stipple_hint = QLabel("Convert the portrait into an algorithmic vector stippled engraving layer with variable-radius dot density.")
+        stipple_hint.setWordWrap(True)
+        stipple_hint.setObjectName("mutedHint")
+        stipple_layout.addWidget(stipple_hint)
+
+        stipple_row = QHBoxLayout()
+        stipple_row.addWidget(QLabel("Grid resolution:"))
+        self.stipple_grid = QSpinBox()
+        self.stipple_grid.setRange(20, 200)
+        self.stipple_grid.setValue(60)
+        self.stipple_grid.setSingleStep(10)
+        stipple_row.addWidget(self.stipple_grid)
+        self.stipple_btn = QPushButton("✨ Generate Halftone Layer")
+        self.stipple_btn.setObjectName("primaryButton")
+        self.stipple_btn.clicked.connect(self._generate_halftone)
+        stipple_row.addWidget(self.stipple_btn)
+        stipple_layout.addLayout(stipple_row)
+        self.style_layout.addWidget(stipple_box)
 
         live_box = QGroupBox("Live portrait")
         live_layout = QVBoxLayout(live_box)
@@ -559,6 +590,48 @@ class UrbanPortraitDock(QDockWidget):
         result = layers[0].saveNamedStyle(path)
         ok = bool(result[1]) if isinstance(result, tuple) and len(result) > 1 else not bool(result)
         self._set_status(f"Style exported: {path}" if ok else f"Could not export style: {result}", error=not ok)
+
+    def _generate_halftone(self) -> None:
+        if self.engine.profile is None:
+            self._set_status("Choose a portrait picture first.", error=True)
+            return
+        grid = self.stipple_grid.value()
+        self.engine.options = self._options()
+        try:
+            layer = self.engine.generate_halftone(grid_size=grid)
+            if layer:
+                self._set_status(f"Halftone stipple layer generated ({layer.featureCount()} dots).")
+                self._refresh_layers()
+        except Exception as exc:
+            self._set_status(f"Halftone generation failed: {exc}", error=True)
+
+    def _import_presets(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Import Palette Presets", "", "JSON Files (*.json)")
+        if not path:
+            return
+        try:
+            loaded = import_presets_json(path)
+            PRESETS.update(loaded)
+            current = self.preset.currentText()
+            self.preset.clear()
+            self.preset.addItems(list(PRESETS))
+            if current in PRESETS:
+                self.preset.setCurrentText(current)
+            self._set_status(f"Imported {len(loaded)} palette preset(s) from {Path(path).name}.")
+        except Exception as exc:
+            self._set_status(f"Palette import failed: {exc}", error=True)
+
+    def _export_presets(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(self, "Export Palette Presets", "urban_portrait_presets.json", "JSON Files (*.json)")
+        if not path:
+            return
+        if not path.lower().endswith(".json"):
+            path += ".json"
+        try:
+            export_presets_json(path)
+            self._set_status(f"Saved palette presets to: {path}")
+        except Exception as exc:
+            self._set_status(f"Palette export failed: {exc}", error=True)
 
     def _set_progress(self, sampled: int, visible: int) -> None:
         self.progress.setRange(0, max(1, visible))

@@ -7,16 +7,17 @@
 
 **[Comprehensive Academic Reference Manual](https://yusufeminoglu.github.io/zero2urbanportrait/)** — complete documentation of every feature, parameter, and workflow. Hosted on GitHub Pages.
 
-
 ## Highlights
 
+- **Algorithmic Halftone & Stippling Engraving Generator**: converts sampled portrait luminance into variable-radius dot grids and algorithmic engraving vector layers.
+- **10 Curated Art Presets**: Ink, Neon, Blueprint, Sepia, Negative, Cyberpunk 2077, Vintage Engraving, Thermal Heatmap, Emerald Eco-Map, and Nordic Slate.
+- **Custom Palette JSON Import/Export**: share and load custom colorways as standard JSON files.
 - Two data workflows: built-in OSM acquisition or any existing project vector layer.
 - One-click OSM Standard basemap plus safe small-area roads/buildings/land-use download.
 - Map-locked or screen-locked portrait masks with an optional frame overlay.
 - Distortion-free picture fitting that preserves the original aspect ratio in every frame mode.
 - Fast center, balanced multi-point, and high-quality geometry sampling.
 - Live debounced updates while panning and zooming.
-- Five art presets: Ink, Neon, Blueprint, Sepia, and Negative.
 - Local smart contrast, gamma, inversion, and edge emphasis.
 - Line underlays for shadow/glow depth and tonal polygon fills.
 - Multiple vector layers in one composition.
@@ -32,7 +33,7 @@
    - Add the OSM basemap, zoom to a neighbourhood, and download the current view.
 3. Choose a portrait image.
 4. Use the canvas extent or draw a geographic frame.
-5. Choose a preset and smart mask controls.
+5. Choose a preset, smart mask controls, or generate a halftone stippling layer.
 6. Click **Create portrait**, then export the current composition as PNG, PDF, or SVG.
 
 The built-in public Overpass workflow rejects views wider than 6 km or larger than 25 square kilometres. This prevents accidental city/country-scale requests. Downloaded OSM layers are memory layers and can be saved permanently with QGIS **Export > Save Features As**.
