@@ -6,10 +6,12 @@ import math
 from contextlib import suppress
 
 
-def calculate_stipple_points(min_x: float, min_y: float, max_x: float, max_y: float,
-                            grid_cols: int, grid_rows: int,
-                            sample_fn, max_radius: float = 5.0,
-                            gamma: float = 1.0, invert: bool = False) -> list[dict]:
+def calculate_stipple_points(
+    min_x: float, min_y: float, max_x: float, max_y: float,
+    grid_cols: int, grid_rows: int,
+    sample_fn, max_radius: float = 5.0,
+    gamma: float = 1.0, invert: bool = False
+) -> list[dict]:
     """Pure-math grid calculation: returns point records with coordinate, radius, and tone."""
     values = (min_x, min_y, max_x, max_y, max_radius, gamma)
     if any(not math.isfinite(float(value)) for value in values):
@@ -71,17 +73,17 @@ def generate_stipple_layer(bounds: tuple[float, float, float, float],
     """Build a styled QgsVectorLayer of variable-radius vector stipple points."""
     try:
         from qgis.core import (
-            QgsField, QgsFeature, QgsGeometry, QgsPointXY,
+            QgsFeature, QgsGeometry, QgsPointXY,
             QgsVectorLayer, QgsMarkerSymbol, QgsSingleSymbolRenderer,
             QgsProperty,
         )
-        from qgis.PyQt.QtCore import QVariant
-        from qgis.PyQt.QtGui import QColor
     except ImportError:  # pragma: no cover
         return None
 
     min_x, min_y, max_x, max_y = bounds
-    sample_fn = lambda u, v: profile.sample(u, v, render_options)
+
+    def sample_fn(u, v):
+        return profile.sample(u, v, render_options)
 
     # Estimate max dot radius in map units so dots touch at maximum density
     cell_w = (max_x - min_x) / max(1, grid_cols)
