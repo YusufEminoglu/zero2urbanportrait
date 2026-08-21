@@ -269,6 +269,42 @@ QPushButton#accentButton {
     color: %(accent)s;
     border-color: %(accent)s;
 }
+QPushButton#basemapBtn {
+    background: %(card)s;
+    color: %(text)s;
+    border: 1.5px solid %(border)s;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-weight: 700;
+}
+QPushButton#basemapBtn:hover {
+    background: %(accent_soft)s;
+    border-color: %(accent)s;
+    color: %(accent)s;
+}
+QPushButton#osmDownloadBtn {
+    background: %(accent)s;
+    color: %(accent_text)s;
+    border: 1.5px solid %(accent)s;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-weight: 700;
+}
+QPushButton#osmDownloadBtn:hover {
+    background: %(accent_hover)s;
+    border-color: %(accent_hover)s;
+}
+QPushButton#osmDownloadBtn:disabled {
+    background: %(input_surface)s;
+    color: %(disabled)s;
+    border-color: %(border)s;
+}
+QFrame#osmPillCard {
+    background: %(input_surface)s;
+    border: 1px solid %(border)s;
+    border-radius: 8px;
+    padding: 6px 8px;
+}
 QPushButton#primaryButton {
     background: %(accent)s;
     color: %(accent_text)s;

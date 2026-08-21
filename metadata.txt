@@ -3,11 +3,11 @@ name=02Urban Portrait - City as a Face
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Create live urban portraits from built-in OSM downloads or project vectors, with luminance styling and print-ready export.
-version=0.3.1
+version=0.3.2
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
-about=02Urban Portrait transforms vector infrastructure into optical portraits, cartographic engravings, and graphic masks. Load a profile image, map it to a geographic frame, and style roads, buildings, points, or other vector layers from sampled pixel luminance without changing source geometries or attributes. Features interactive 3-stage visual workflow stepper with numbered circular badges, algorithmic vector stippling & halftone engraving generator, 10 curated artistic colorway presets with JSON import/export, built-in OSM acquisition, live pan and zoom updates, and PNG/PDF/SVG export. Online User Manual & Documentation: https://yusufeminoglu.github.io/zero2urbanportrait/ | If you find this plugin helpful, please consider starring the repository on GitHub (https://github.com/YusufEminoglu/zero2urbanportrait)!
+about=02Urban Portrait transforms vector infrastructure into optical portraits, cartographic engravings, and graphic masks. Load a profile image, map it to a geographic frame, and style roads, buildings, points, or other vector layers from sampled pixel luminance without changing source geometries or attributes. Features interactive 3-stage visual workflow stepper with numbered circular badges, algorithmic vector stippling & halftone engraving generator, 10 curated artistic colorway presets with JSON import/export, prominent built-in OSM acquisition with live safety badges, live pan and zoom updates, and PNG/PDF/SVG export. Online User Manual & Documentation: https://yusufeminoglu.github.io/zero2urbanportrait/ | If you find this plugin helpful, please consider starring the repository on GitHub (https://github.com/YusufEminoglu/zero2urbanportrait)!
 
 tracker=https://github.com/YusufEminoglu/zero2urbanportrait/issues
 repository=https://github.com/YusufEminoglu/zero2urbanportrait
@@ -23,6 +23,10 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
+    0.3.2 - Enhanced OSM Acquisition & High-Visibility UI:
+        Added: High-visibility '🗺️ Add OSM Basemap' and '⬇️ Download This View (OSM)' action buttons with custom theme styling and tooltips.
+        Added: Live canvas extent safety badge pill with real-time metric indicators and readiness feedback.
+        Added: Polished export panel with format clarification and prominent artwork export action.
     0.3.1 - Visual Workflow Stepper & Circular Step Nodes:
         Added: Interactive 3-stage visual workflow stepper with numbered circular badge nodes (❶ Set up ➔ ❷ Shape ➔ ❸ Export) and live action guide banner.
         Added: Numbered circular step badges across all group box sections for clear sequential progress tracking.

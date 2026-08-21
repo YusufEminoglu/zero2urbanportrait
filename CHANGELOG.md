@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2] - 2026-08-21
+
+### Added
+- **High-Visibility OSM Acquisition & Basemap UI**:
+  - Upgraded "🗺️ Add OSM Basemap" and "⬇️ Download This View (OSM)" buttons with bold theme styling and explanatory tooltips.
+  - Added dynamic real-time canvas extent safety pill container (`QFrame#osmPillCard`) with live area readiness feedback.
+- **Polished Artwork Export Panel**: Clarified vector/raster format choices and styled the primary composition export button.
+
 ## [0.3.1] - 2026-08-21
 
 ### Added

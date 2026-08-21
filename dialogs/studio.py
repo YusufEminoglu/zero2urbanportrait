@@ -9,6 +9,7 @@ from qgis.PyQt.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -39,25 +40,44 @@ class UrbanPortraitDock(_BaseDock):
         return self.setup_layout
 
     def _build_data_source_panel(self) -> None:
-        box = QGroupBox("Get city data")
+        box = QGroupBox("🌐 Quick Start · OpenStreetMap Acquisition & Basemap")
+        box.setObjectName("osmAcquisitionBox")
         layout = QVBoxLayout(box)
+        layout.setContentsMargins(10, 12, 10, 10)
+        layout.setSpacing(8)
+
         explanation = QLabel(
-            "Use project vectors, or bring a portrait-ready neighbourhood from OpenStreetMap."
+            "Use project vectors, or navigate the canvas to a city neighbourhood and grab vector geometries directly from OpenStreetMap."
         )
         explanation.setWordWrap(True)
         explanation.setObjectName("mutedHint")
         layout.addWidget(explanation)
+
         row = QHBoxLayout()
-        self.add_basemap_button = QPushButton("Add OSM basemap")
-        self.download_osm_button = QPushButton("Download this view")
-        self.download_osm_button.setObjectName("accentButton")
+        row.setSpacing(8)
+        self.add_basemap_button = QPushButton("🗺️ Add OSM Basemap")
+        self.add_basemap_button.setObjectName("basemapBtn")
+        self.add_basemap_button.setToolTip("Add the OpenStreetMap Standard XYZ tile basemap to your QGIS project")
+
+        self.download_osm_button = QPushButton("⬇️ Download This View (OSM)")
+        self.download_osm_button.setObjectName("osmDownloadBtn")
+        self.download_osm_button.setToolTip("Download roads, buildings and land use vector polygons for the current canvas extent")
+
         row.addWidget(self.add_basemap_button)
         row.addWidget(self.download_osm_button)
         layout.addLayout(row)
-        self.osm_area_label = QLabel("Safety limit: maximum 6 x 6 km and 25 km².")
+
+        pill_frame = QFrame()
+        pill_frame.setObjectName("osmPillCard")
+        pill_layout = QHBoxLayout(pill_frame)
+        pill_layout.setContentsMargins(8, 5, 8, 5)
+
+        self.osm_area_label = QLabel("📐 Safety limit: maximum 6 × 6 km and 25 km².")
         self.osm_area_label.setWordWrap(True)
-        self.osm_area_label.setStyleSheet("color: #475569;")
-        layout.addWidget(self.osm_area_label)
+        self.osm_area_label.setStyleSheet("color: #475569; font-size: 9pt;")
+        pill_layout.addWidget(self.osm_area_label)
+
+        layout.addWidget(pill_frame)
         self._content_layout().insertWidget(0, box)
 
     def _build_frame_visibility_control(self) -> None:
@@ -69,10 +89,13 @@ class UrbanPortraitDock(_BaseDock):
         self._frame_band.hide()
 
     def _build_export_panel(self) -> None:
-        box = QGroupBox("Export artwork")
+        box = QGroupBox("❼ Step 3.2 · High-Resolution Composition Artwork Export")
         form = QFormLayout(box)
+        form.setContentsMargins(10, 12, 10, 10)
+        form.setSpacing(8)
+
         explanation = QLabel(
-            "Save the complete canvas composition for print, presentation, or further editing."
+            "Save the complete canvas composition for print, presentation, or vector publication."
         )
         explanation.setWordWrap(True)
         explanation.setObjectName("mutedHint")
@@ -82,11 +105,11 @@ class UrbanPortraitDock(_BaseDock):
         self.export_dpi.setRange(72, 1200)
         self.export_dpi.setValue(300)
         self.export_dpi.setSuffix(" dpi")
-        self.export_map_button = QPushButton("Export current composition...")
+        self.export_map_button = QPushButton("🎨 Export Artwork Composition (PNG / PDF / SVG)...")
         self.export_map_button.setObjectName("primaryButton")
         form.addRow(explanation)
         form.addRow("Format", self.export_format)
-        form.addRow("Raster resolution", self.export_dpi)
+        form.addRow("Resolution (Raster)", self.export_dpi)
         form.addRow(self.export_map_button)
         self.output_layout.insertWidget(1, box)
 
@@ -129,13 +152,13 @@ class UrbanPortraitDock(_BaseDock):
             _bbox, summary = validate_download_extent(
                 self.canvas.extent(), self.canvas.mapSettings().destinationCrs()
             )
-            self.osm_area_label.setText(f"Current view: {summary}. Ready to download.")
-            self.osm_area_label.setStyleSheet("color: #166534;")
+            self.osm_area_label.setText(f"✅ Current view: {summary} — Ready to download.")
+            self.osm_area_label.setStyleSheet("color: #166534; font-weight: 600; font-size: 9pt;")
             if not self.osm_manager.busy:
                 self.download_osm_button.setEnabled(True)
         except (ValueError, RuntimeError) as exc:
-            self.osm_area_label.setText(str(exc))
-            self.osm_area_label.setStyleSheet("color: #b45309;")
+            self.osm_area_label.setText(f"⚠️ {exc}")
+            self.osm_area_label.setStyleSheet("color: #b45309; font-weight: 500; font-size: 9pt;")
             if not self.osm_manager.busy:
                 self.download_osm_button.setEnabled(False)
 
