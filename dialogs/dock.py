@@ -42,6 +42,98 @@ from .theme import apply_adaptive_theme, dock_color_tokens
 TITLE = "02Urban Portrait"
 
 
+class StepNodeWidget(QFrame):
+    """Interactive visual stepper with 3 numbered circular badge nodes and dynamic step guide."""
+
+    step_clicked = pyqtSignal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("stepperContainer")
+        self._current_step = 0
+        self._step_completed = [False, False, False]
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(6)
+
+        nodes_row = QHBoxLayout()
+        nodes_row.setContentsMargins(2, 2, 2, 2)
+        nodes_row.setSpacing(4)
+
+        self._step_buttons = []
+        step_definitions = [
+            ("1", "Set up"),
+            ("2", "Shape"),
+            ("3", "Export"),
+        ]
+
+        for idx, (num, title) in enumerate(step_definitions):
+            btn = QPushButton(f"  {num}  {title}")
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.clicked.connect(lambda _, i=idx: self.step_clicked.emit(i))
+            self._step_buttons.append(btn)
+            nodes_row.addWidget(btn, 1)
+            if idx < len(step_definitions) - 1:
+                arrow = QLabel("➔")
+                arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                arrow.setStyleSheet("color: #64748b; font-weight: bold; font-size: 11px;")
+                nodes_row.addWidget(arrow)
+
+        layout.addLayout(nodes_row)
+
+        self.guide_label = QLabel("👉 Step 1: Upload a portrait picture and select vector layers.")
+        self.guide_label.setObjectName("stepGuideLabel")
+        self.guide_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.guide_label.setWordWrap(True)
+        layout.addWidget(self.guide_label)
+
+    def set_current_step(self, step: int) -> None:
+        self._current_step = max(0, min(step, 2))
+        self.refresh()
+
+    def set_completed(self, step: int, completed: bool) -> None:
+        if 0 <= step < len(self._step_completed):
+            self._step_completed[step] = completed
+            self.refresh()
+
+    def set_guide_text(self, text: str) -> None:
+        self.guide_label.setText(text)
+
+    def refresh(self) -> None:
+        step_names = ["Set up", "Shape", "Export"]
+        badges = ["❶", "❷", "❸"]
+
+        for i, btn in enumerate(self._step_buttons):
+            name = step_names[i]
+            is_active = (i == self._current_step)
+            is_done = self._step_completed[i]
+
+            badge = "✔" if is_done and not is_active else badges[i]
+            btn.setText(f"{badge}  {name}")
+
+            if is_active:
+                btn.setStyleSheet(
+                    "QPushButton { background-color: #0891b2; color: #ffffff; "
+                    "font-weight: 700; border: 2px solid #22d3ee; border-radius: 12px; "
+                    "padding: 5px 8px; font-size: 10px; }"
+                )
+            elif is_done:
+                btn.setStyleSheet(
+                    "QPushButton { background-color: rgba(6, 182, 212, 0.16); color: #06b6d4; "
+                    "font-weight: 600; border: 1px solid #0891b2; border-radius: 12px; "
+                    "padding: 5px 8px; font-size: 10px; }"
+                )
+            else:
+                btn.setStyleSheet(
+                    "QPushButton { background-color: rgba(100, 116, 139, 0.12); color: #94a3b8; "
+                    "font-weight: 500; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 12px; "
+                    "padding: 5px 8px; font-size: 10px; }"
+                )
+
+
 class UrbanPortraitDock(QDockWidget):
     request_map_tool = pyqtSignal(object)
     request_unset_tool = pyqtSignal(object)
@@ -110,10 +202,9 @@ class UrbanPortraitDock(QDockWidget):
         hero_layout.addWidget(badge, 0, Qt.AlignmentFlag.AlignTop)
         root.addWidget(hero)
 
-        self.workflow = QLabel("●  SET UP   ›   02  SHAPE PORTRAIT   ›   03  EXPORT")
-        self.workflow.setObjectName("workflowStrip")
-        self.workflow.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        root.addWidget(self.workflow)
+        # ── Interactive 3-Stage Workflow Stepper ─────────────────────────
+        self.stepper = StepNodeWidget(shell)
+        root.addWidget(self.stepper)
 
         self.tabs = QTabWidget(shell)
         self.tabs.setDocumentMode(True)
@@ -122,7 +213,10 @@ class UrbanPortraitDock(QDockWidget):
         self.output_layout = self._create_tab(self.tabs, "Export")
         root.addWidget(self.tabs, 1)
 
-        image_box = QGroupBox("Portrait picture")
+        # ══════════════════════════════════════════════════════════════════
+        # TAB 1: SET UP
+        # ══════════════════════════════════════════════════════════════════
+        image_box = QGroupBox("❶ Step 1.1 · Upload Portrait Picture")
         image_layout = QVBoxLayout(image_box)
         image_layout.setSpacing(8)
         self.preview = QLabel("No image selected")
@@ -147,7 +241,7 @@ class UrbanPortraitDock(QDockWidget):
         )
         self.setup_layout.addWidget(image_box)
 
-        layer_box = QGroupBox("Vector canvas")
+        layer_box = QGroupBox("❷ Step 1.2 · Select Vector Canvas")
         layer_layout = QVBoxLayout(layer_box)
         layer_hint = QLabel("Select the roads, buildings or points that will carry the portrait.")
         layer_hint.setWordWrap(True)
@@ -170,7 +264,7 @@ class UrbanPortraitDock(QDockWidget):
         )
         self.setup_layout.addWidget(layer_box)
 
-        frame_box = QGroupBox("Portrait placement")
+        frame_box = QGroupBox("❸ Step 1.3 · Geographic Frame Placement")
         frame_layout = QVBoxLayout(frame_box)
         frame_buttons = QHBoxLayout()
         self.canvas_frame_button = QPushButton("Use canvas extent")
@@ -189,9 +283,17 @@ class UrbanPortraitDock(QDockWidget):
         aspect_note.setObjectName("mutedHint")
         frame_layout.addWidget(aspect_note)
         self.setup_layout.addWidget(frame_box)
+
+        self.next_to_shape_btn = QPushButton("Proceed to Step 2: Shape Portrait ➔")
+        self.next_to_shape_btn.setObjectName("primaryButton")
+        self.next_to_shape_btn.clicked.connect(lambda: self.tabs.setCurrentIndex(1))
+        self.setup_layout.addWidget(self.next_to_shape_btn)
         self.setup_layout.addStretch(1)
 
-        style_box = QGroupBox("Art direction")
+        # ══════════════════════════════════════════════════════════════════
+        # TAB 2: PORTRAIT (SHAPE)
+        # ══════════════════════════════════════════════════════════════════
+        style_box = QGroupBox("❹ Step 2.1 · Art Direction & Presets")
         form = QFormLayout(style_box)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form.setHorizontalSpacing(14)
@@ -239,29 +341,8 @@ class UrbanPortraitDock(QDockWidget):
         form.addRow(self.invert)
         self.style_layout.addWidget(style_box)
 
-        # ── Vector Stippling & Halftone Studio ────────────────────────
-        stipple_box = QGroupBox("Vector Halftone & Engraving Studio")
-        stipple_layout = QVBoxLayout(stipple_box)
-        stipple_hint = QLabel("Convert the portrait into an algorithmic vector stippled engraving layer with variable-radius dot density.")
-        stipple_hint.setWordWrap(True)
-        stipple_hint.setObjectName("mutedHint")
-        stipple_layout.addWidget(stipple_hint)
-
-        stipple_row = QHBoxLayout()
-        stipple_row.addWidget(QLabel("Grid resolution:"))
-        self.stipple_grid = QSpinBox()
-        self.stipple_grid.setRange(20, 200)
-        self.stipple_grid.setValue(60)
-        self.stipple_grid.setSingleStep(10)
-        stipple_row.addWidget(self.stipple_grid)
-        self.stipple_btn = QPushButton("✨ Generate Halftone Layer")
-        self.stipple_btn.setObjectName("primaryButton")
-        self.stipple_btn.clicked.connect(self._generate_halftone)
-        stipple_row.addWidget(self.stipple_btn)
-        stipple_layout.addLayout(stipple_row)
-        self.style_layout.addWidget(stipple_box)
-
-        live_box = QGroupBox("Live portrait")
+        # ── Live Render Box ───────────────────────────────────────────
+        live_box = QGroupBox("❺ Step 2.2 · Render Live Portrait")
         live_layout = QVBoxLayout(live_box)
         live_hint = QLabel("Create once, then tune the portrait while the map updates in place.")
         live_hint.setWordWrap(True)
@@ -278,8 +359,38 @@ class UrbanPortraitDock(QDockWidget):
         render_row.addWidget(self.update_button)
         live_layout.addLayout(render_row)
         self.style_layout.addWidget(live_box)
+
+        # ── Vector Stippling & Halftone Studio ────────────────────────
+        stipple_box = QGroupBox("✨ Step 2.3 · Vector Halftone & Engraving Studio")
+        stipple_layout = QVBoxLayout(stipple_box)
+        stipple_hint = QLabel("Convert the portrait into an algorithmic vector stippled engraving layer with variable-radius dot density.")
+        stipple_hint.setWordWrap(True)
+        stipple_hint.setObjectName("mutedHint")
+        stipple_layout.addWidget(stipple_hint)
+
+        stipple_row = QHBoxLayout()
+        stipple_row.addWidget(QLabel("Grid resolution:"))
+        self.stipple_grid = QSpinBox()
+        self.stipple_grid.setRange(20, 200)
+        self.stipple_grid.setValue(60)
+        self.stipple_grid.setSingleStep(10)
+        stipple_row.addWidget(self.stipple_grid)
+        self.stipple_btn = QPushButton("✨ Generate Halftone Layer")
+        self.stipple_btn.setObjectName("accentButton")
+        self.stipple_btn.clicked.connect(self._generate_halftone)
+        stipple_row.addWidget(self.stipple_btn)
+        stipple_layout.addLayout(stipple_row)
+        self.style_layout.addWidget(stipple_box)
+
+        self.next_to_export_btn = QPushButton("Proceed to Step 3: Export Artwork ➔")
+        self.next_to_export_btn.setObjectName("primaryButton")
+        self.next_to_export_btn.clicked.connect(lambda: self.tabs.setCurrentIndex(2))
+        self.style_layout.addWidget(self.next_to_export_btn)
         self.style_layout.addStretch(1)
 
+        # ══════════════════════════════════════════════════════════════════
+        # TAB 3: EXPORT
+        # ══════════════════════════════════════════════════════════════════
         export_intro = QLabel(
             "Finish the composition, export the map artwork, or keep a reusable QGIS style."
         )
@@ -287,7 +398,7 @@ class UrbanPortraitDock(QDockWidget):
         export_intro.setObjectName("tabIntro")
         self.output_layout.addWidget(export_intro)
 
-        safe_box = QGroupBox("Style portability & recovery")
+        safe_box = QGroupBox("❻ Step 3.1 · Style Portability & Recovery")
         safe_layout = QVBoxLayout(safe_box)
         safe_hint = QLabel(
             "Export one selected portrait layer as QML, or restore every source renderer instantly."
@@ -310,6 +421,7 @@ class UrbanPortraitDock(QDockWidget):
         self.output_layout.addWidget(safe_box)
         self.output_layout.addStretch(1)
 
+        # ── Bottom Progress & Status ──────────────────────────────────
         self.progress = QProgressBar()
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
@@ -347,6 +459,7 @@ class UrbanPortraitDock(QDockWidget):
 
     def _connect_signals(self) -> None:
         self.tabs.currentChanged.connect(self._tab_changed)
+        self.stepper.step_clicked.connect(self.tabs.setCurrentIndex)
         self.browse_button.clicked.connect(self._choose_image)
         self.refresh_layers_button.clicked.connect(self._refresh_layers)
         self.layer_list.itemSelectionChanged.connect(self._update_controls)
@@ -374,12 +487,29 @@ class UrbanPortraitDock(QDockWidget):
                 signal.connect(self._style_changed)
 
     def _tab_changed(self, index: int) -> None:
-        steps = (
-            "●  SET UP   ›   02  SHAPE PORTRAIT   ›   03  EXPORT",
-            "01  SET UP   ›   ●  SHAPE PORTRAIT   ›   03  EXPORT",
-            "01  SET UP   ›   02  SHAPE PORTRAIT   ›   ●  EXPORT",
-        )
-        self.workflow.setText(steps[max(0, min(index, len(steps) - 1))])
+        self.stepper.set_current_step(index)
+        self._update_step_guide()
+
+    def _update_step_guide(self) -> None:
+        has_image = self.engine.profile is not None
+        has_layers = len(self.selected_layers()) > 0
+        has_portrait = bool(self.engine._styled_layers)
+        current = self.tabs.currentIndex()
+
+        if current == 0:
+            if not has_image:
+                self.stepper.set_guide_text("👉 Step 1.1: Click 'Upload picture...' to select a portrait image.")
+            elif not has_layers:
+                self.stepper.set_guide_text("👉 Step 1.2: Select one or more vector layers from the list below.")
+            else:
+                self.stepper.set_guide_text("✅ Step 1 ready! Click 'Proceed to Step 2 ➔' or adjust frame.")
+        elif current == 1:
+            if not has_portrait:
+                self.stepper.set_guide_text("👉 Step 2: Choose an art preset and click 'Create portrait'.")
+            else:
+                self.stepper.set_guide_text("✅ Portrait active! Tune style sliders or proceed to Step 3.")
+        else:
+            self.stepper.set_guide_text("👉 Step 3: Export the composition artwork or save layer QML style.")
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
@@ -422,12 +552,20 @@ class UrbanPortraitDock(QDockWidget):
             return
         selected = self.selected_layers()
         styled = self.engine._styled_layers
-        self.apply_button.setEnabled(self.engine.profile is not None and bool(selected))
-        self.update_button.setEnabled(bool(styled))
-        self.restore_button.setEnabled(bool(styled))
+        has_image = self.engine.profile is not None
+        has_layers = bool(selected)
+        has_portrait = bool(styled)
+
+        self.apply_button.setEnabled(has_image and has_layers)
+        self.update_button.setEnabled(has_portrait)
+        self.restore_button.setEnabled(has_portrait)
         self.export_button.setEnabled(
             len(selected) == 1 and selected[0].id() in styled
         )
+
+        self.stepper.set_completed(0, has_image and has_layers)
+        self.stepper.set_completed(1, has_portrait)
+        self._update_step_guide()
 
     def selected_layers(self) -> list[QgsVectorLayer]:
         project = QgsProject.instance()
@@ -449,53 +587,63 @@ class UrbanPortraitDock(QDockWidget):
             self.layer_list.addItem(item)
             if layer.id() in selected:
                 item.setSelected(True)
+        if not self.selected_layers() and self.layer_list.count() > 0:
+            self.layer_list.item(0).setSelected(True)
+        self._update_controls()
 
     def _select_active(self) -> None:
         active = self.iface.activeLayer()
-        self.layer_list.clearSelection()
         if not isinstance(active, QgsVectorLayer):
-            self._set_status("The active layer is not a vector layer.", error=True)
+            self._set_status("Active layer is not a vector layer.", error=True)
             return
         for row in range(self.layer_list.count()):
             item = self.layer_list.item(row)
-            if item.data(Qt.ItemDataRole.UserRole) == active.id():
-                item.setSelected(True)
-                self.layer_list.scrollToItem(item)
-                return
+            item.setSelected(item.data(Qt.ItemDataRole.UserRole) == active.id())
+        self._update_controls()
 
     def _choose_image(self) -> None:
-        path, _selected_filter = QFileDialog.getOpenFileName(
-            self, "Upload portrait picture", "", "Images (*.png *.jpg *.jpeg *.tif *.tiff *.webp *.bmp)"
-        )
+        filters = "Supported pictures (*.jpg *.jpeg *.png *.tif *.tiff *.webp);;All files (*.*)"
+        path, _selected_filter = QFileDialog.getOpenFileName(self, "Select portrait image", "", filters)
         if not path:
             return
         try:
             self.engine.set_image(path)
-        except (ValueError, OSError) as exc:
+        except ValueError as exc:
             self._set_status(str(exc), error=True)
             return
         self._display_loaded_image()
-        if self.engine.bounds is not None:
+        if self.engine.bounds is None or self.follow_canvas.isChecked():
+            self.engine.set_bounds(self.canvas.extent())
             self._show_frame(self.engine.bounds)
         self._update_controls()
         self._write_project_state()
 
     def _use_canvas_frame(self) -> None:
-        self._accept_frame(self.canvas.extent())
+        if self.engine.profile is None:
+            self._set_status("Choose an image before setting the frame.", error=True)
+            return
+        self.engine.set_bounds(self.canvas.extent())
+        self._show_frame(self.engine.bounds)
+        self._style_changed()
 
     def _draw_frame(self) -> None:
-        self.follow_canvas.setChecked(False)
+        if self.engine.profile is None:
+            self._set_status("Choose an image before drawing a frame.", error=True)
+            return
         self.request_map_tool.emit(self.frame_tool)
-        self._set_status("Drag a rectangle over the map to place the portrait.")
+        self._set_status("Click and drag a box across the map canvas.")
 
     def _accept_frame(self, rectangle: QgsRectangle) -> None:
+        self.request_unset_tool.emit(self.frame_tool)
         self.engine.set_bounds(rectangle)
         self._show_frame(self.engine.bounds)
-        self.request_unset_tool.emit(self.frame_tool)
-        self._write_project_state()
-        self._set_status("Geographic portrait frame set with the picture aspect ratio preserved.")
+        self._style_changed()
 
-    def _show_frame(self, rectangle: QgsRectangle) -> None:
+    def _show_frame(self, rectangle: QgsRectangle | None) -> None:
+        if rectangle is None:
+            self._frame_band.hide()
+            self.frame_label.setText("Frame: not set")
+            return
         self._frame_band.setToGeometry(QgsGeometry.fromRect(rectangle), None)
         self._frame_band.show()
         self.frame_label.setText(

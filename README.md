@@ -9,6 +9,7 @@
 
 ## Highlights
 
+- **Visual Workflow Stepper with Numbered Step Nodes**: an interactive 3-stage visual header (`❶ Set up ➔ ❷ Shape ➔ ❸ Export`) with step guidance and completion indicators.
 - **Algorithmic Halftone & Stippling Engraving Generator**: converts sampled portrait luminance into variable-radius dot grids and algorithmic engraving vector layers.
 - **10 Curated Art Presets**: Ink, Neon, Blueprint, Sepia, Negative, Cyberpunk 2077, Vintage Engraving, Thermal Heatmap, Emerald Eco-Map, and Nordic Slate.
 - **Custom Palette JSON Import/Export**: share and load custom colorways as standard JSON files.

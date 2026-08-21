@@ -161,6 +161,21 @@ QLabel#workflowStrip {
     font-size: 10px;
     font-weight: 700;
 }
+QFrame#stepperContainer {
+    background: %(surface)s;
+    border: 1px solid %(border)s;
+    border-radius: 10px;
+    padding: 4px;
+}
+QLabel#stepGuideLabel {
+    background: %(accent_soft)s;
+    color: %(accent)s;
+    border: 1px solid %(border)s;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 10px;
+    font-weight: 600;
+}
 QTabWidget::pane {
     border: 1px solid %(border)s;
     border-radius: 10px;

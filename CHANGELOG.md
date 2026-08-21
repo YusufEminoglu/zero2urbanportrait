@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1] - 2026-08-21
+
+### Added
+- **Visual Workflow Stepper (`StepNodeWidget`)**: Added an interactive 3-stage visual progress stepper featuring numbered circular badge nodes (❶ Set up ➔ ❷ Shape ➔ ❸ Export) with live action guidance and completion status tracking.
+- **Numbered Section Badges**: All group box sections are now sequential numbered steps (❶ Step 1.1 through ❻ Step 3.1) for an intuitive, structured workflow.
+- **Step Navigation Buttons**: Added explicit 'Proceed to Next Step ➔' actions in Set up and Shape panels.
+
 ## [0.3.0] - 2026-08-21
 
 ### Added
