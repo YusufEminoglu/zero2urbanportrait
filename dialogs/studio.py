@@ -135,7 +135,16 @@ class UrbanPortraitDock(_BaseDock):
     def _update_controls(self) -> None:
         super()._update_controls()
         if hasattr(self, "export_map_button"):
-            self.export_map_button.setEnabled(bool(self.engine._styled_layers))
+            project_ids = set(QgsProject.instance().mapLayers())
+            self._halftone_layer_ids.intersection_update(project_ids)
+            has_composition = bool(self.engine._styled_layers or self._halftone_layer_ids)
+            self.export_map_button.setEnabled(has_composition)
+            self.next_to_export_btn.setEnabled(has_composition)
+            self.next_to_export_btn.setToolTip(
+                "Continue to artwork export." if has_composition
+                else "Create a portrait or generate a halftone layer first."
+            )
+            self.stepper.set_completed(1, has_composition)
 
     def _add_osm_basemap(self) -> None:
         try:
@@ -190,6 +199,7 @@ class UrbanPortraitDock(_BaseDock):
             layer_ids.add(layer.id())
             counts.append(f"{layer.name()}: {layer.featureCount()}")
         self._refresh_layers()
+        self.layer_list.clearSelection()
         for row in range(self.layer_list.count()):
             item = self.layer_list.item(row)
             if item.data(0x0100) in layer_ids:  # Qt.UserRole remains 0x0100 in Qt5/Qt6.
@@ -243,12 +253,17 @@ class UrbanPortraitDock(_BaseDock):
             return
         if Path(path).suffix.lower() != f".{extension}":
             path += f".{extension}"
+        frame_was_visible = self.show_frame.isChecked()
         self.show_frame.setChecked(False)
         try:
             export_canvas(self.canvas, path, output_format, self.export_dpi.value())
         except (OSError, RuntimeError) as exc:
             self._set_status(str(exc), error=True)
             return
+        finally:
+            self.show_frame.setChecked(frame_was_visible)
+        self._export_completed = True
+        self._update_controls()
         self._set_status(f"Export complete: {path}")
 
     def dispose(self) -> None:

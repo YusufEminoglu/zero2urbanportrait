@@ -142,6 +142,8 @@ class UrbanPortraitDock(QDockWidget):
         super().__init__("02Urban Portrait - City as a Face", parent)
         self._restoring_state = False
         self._preview_pixmap = QPixmap()
+        self._halftone_layer_ids: set[str] = set()
+        self._export_completed = False
         self.iface = iface
         self.canvas = iface.mapCanvas()
         self.engine = PortraitEngine(self.canvas, self)
@@ -493,7 +495,7 @@ class UrbanPortraitDock(QDockWidget):
     def _update_step_guide(self) -> None:
         has_image = self.engine.profile is not None
         has_layers = len(self.selected_layers()) > 0
-        has_portrait = bool(self.engine._styled_layers)
+        has_portrait = bool(self.engine._styled_layers or self._halftone_layer_ids)
         current = self.tabs.currentIndex()
 
         if current == 0:
@@ -554,17 +556,30 @@ class UrbanPortraitDock(QDockWidget):
         styled = self.engine._styled_layers
         has_image = self.engine.profile is not None
         has_layers = bool(selected)
-        has_portrait = bool(styled)
+        has_styled = bool(styled)
+        has_portrait = bool(styled or self._halftone_layer_ids)
+        can_shape = has_image and has_layers
 
-        self.apply_button.setEnabled(has_image and has_layers)
-        self.update_button.setEnabled(has_portrait)
-        self.restore_button.setEnabled(has_portrait)
+        self.apply_button.setEnabled(can_shape)
+        self.update_button.setEnabled(has_styled)
+        self.restore_button.setEnabled(has_styled)
         self.export_button.setEnabled(
             len(selected) == 1 and selected[0].id() in styled
         )
 
-        self.stepper.set_completed(0, has_image and has_layers)
+        self.next_to_shape_btn.setEnabled(can_shape)
+        self.next_to_shape_btn.setToolTip(
+            "Continue to portrait controls." if can_shape
+            else "Upload an image and select at least one vector layer first."
+        )
+        self.next_to_export_btn.setEnabled(has_portrait)
+        self.next_to_export_btn.setToolTip(
+            "Continue to artwork export." if has_portrait
+            else "Create a portrait before continuing to export."
+        )
+        self.stepper.set_completed(0, can_shape)
         self.stepper.set_completed(1, has_portrait)
+        self.stepper.set_completed(2, self._export_completed)
         self._update_step_guide()
 
     def selected_layers(self) -> list[QgsVectorLayer]:
@@ -684,8 +699,12 @@ class UrbanPortraitDock(QDockWidget):
         if self.follow_canvas.isChecked():
             self.engine.set_bounds(self.canvas.extent())
             self._show_frame(self.engine.bounds)
-        self.engine.restyle()
-        self.engine.refresh()
+        try:
+            self.engine.restyle()
+            self.engine.refresh()
+        except (RuntimeError, ValueError) as exc:
+            self._set_status(f"Portrait update failed: {exc}", error=True)
+            return
         self._write_project_state()
 
     def _style_changed(self, _value=None) -> None:
@@ -709,10 +728,13 @@ class UrbanPortraitDock(QDockWidget):
         self._write_project_state()
 
     def _schedule_live(self) -> None:
-        if self.live.isChecked():
+        if (self.live.isChecked() and self.engine.profile is not None
+                and self.engine._styled_layers):
             self._live_timer.start()
 
     def _live_refresh(self) -> None:
+        if self.engine.profile is None or not self.engine._styled_layers:
+            return
         if self.follow_canvas.isChecked():
             self.engine.set_bounds(self.canvas.extent())
             self._show_frame(self.engine.bounds)
@@ -720,8 +742,8 @@ class UrbanPortraitDock(QDockWidget):
         self.engine.refresh()
 
     def _restore(self) -> None:
-        selected = {layer.id() for layer in self.selected_layers()}
-        self.engine.restore(selected or None)
+        restored = self.engine.restore()
+        self._set_status(f"Restored {restored} original layer style(s).")
         self._update_controls()
 
     def _export_qml(self) -> None:
@@ -737,6 +759,9 @@ class UrbanPortraitDock(QDockWidget):
             path += ".qml"
         result = layers[0].saveNamedStyle(path)
         ok = bool(result[1]) if isinstance(result, tuple) and len(result) > 1 else not bool(result)
+        if ok:
+            self._export_completed = True
+            self._update_controls()
         self._set_status(f"Style exported: {path}" if ok else f"Could not export style: {result}", error=not ok)
 
     def _generate_halftone(self) -> None:
@@ -748,8 +773,10 @@ class UrbanPortraitDock(QDockWidget):
         try:
             layer = self.engine.generate_halftone(grid_size=grid)
             if layer:
+                self._halftone_layer_ids.add(layer.id())
                 self._set_status(f"Halftone stipple layer generated ({layer.featureCount()} dots).")
                 self._refresh_layers()
+                self._update_controls()
         except Exception as exc:
             self._set_status(f"Halftone generation failed: {exc}", error=True)
 

@@ -2,8 +2,16 @@
 """Art-direction presets and palette management for 02Urban Portrait."""
 from __future__ import annotations
 
+from contextlib import suppress
 import json
+import math
 from pathlib import Path
+import re
+
+
+MAX_PRESET_FILE_BYTES = 1024 * 1024
+MAX_IMPORTED_PRESETS = 100
+_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$")
 
 PRESETS = {
     "Ink Portrait": {
@@ -51,21 +59,66 @@ PRESETS = {
 TONE_BREAKS = (0, 52, 104, 156, 208, 256)
 
 
+def validate_preset(name: str, item: dict) -> dict:
+    """Return a renderer-safe normalized preset or raise ``ValueError``."""
+    clean_name = str(name).strip()
+    if not clean_name or len(clean_name) > 80:
+        raise ValueError("Preset names must contain 1 to 80 characters.")
+    if not isinstance(item, dict):
+        raise ValueError(f"Preset '{clean_name}' must be a JSON object.")
+    colors = item.get("colors")
+    if not isinstance(colors, (list, tuple)) or len(colors) != 5:
+        raise ValueError(f"Preset '{clean_name}' must define exactly five colors.")
+    normalized_colors = tuple(str(color).strip() for color in colors)
+    if any(not _COLOR_PATTERN.fullmatch(color) for color in normalized_colors):
+        raise ValueError(f"Preset '{clean_name}' contains an invalid hexadecimal color.")
+    background = str(item.get("background", "")).strip()
+    if not _COLOR_PATTERN.fullmatch(background):
+        raise ValueError(f"Preset '{clean_name}' has an invalid background color.")
+    widths = item.get("widths", (1.35, 1.0, 0.68, 0.38, 0.12))
+    if not isinstance(widths, (list, tuple)) or len(widths) != 5:
+        raise ValueError(f"Preset '{clean_name}' must define exactly five line widths.")
+    try:
+        normalized_widths = tuple(float(width) for width in widths)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Preset '{clean_name}' contains a non-numeric line width.") from exc
+    if any(not math.isfinite(width) or width <= 0.0 or width > 20.0
+           for width in normalized_widths):
+        raise ValueError(f"Preset '{clean_name}' line widths must be finite and between 0 and 20.")
+    return {
+        "colors": normalized_colors,
+        "background": background,
+        "widths": normalized_widths,
+        "hide_highlights": bool(item.get("hide_highlights", False)),
+    }
+
+
 def export_presets_json(path: str | Path, presets_dict: dict | None = None) -> None:
     """Save preset dictionary to a JSON file."""
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    to_save = presets_dict or PRESETS
+    to_save = PRESETS if presets_dict is None else presets_dict
+    if not isinstance(to_save, dict) or not to_save:
+        raise ValueError("At least one valid preset is required for export.")
     serializable = {}
     for name, pr in to_save.items():
-        serializable[name] = {
-            "colors": list(pr.get("colors", [])),
-            "background": pr.get("background", "#ffffff"),
-            "widths": list(pr.get("widths", [])),
-            "hide_highlights": bool(pr.get("hide_highlights", False)),
+        normalized = validate_preset(name, pr)
+        serializable[str(name).strip()] = {
+            "colors": list(normalized["colors"]),
+            "background": normalized["background"],
+            "widths": list(normalized["widths"]),
+            "hide_highlights": normalized["hide_highlights"],
         }
-    with open(p, "w", encoding="utf-8") as f:
-        json.dump(serializable, f, indent=2, ensure_ascii=False)
+    temporary = p.with_name(f".{p.name}.tmp")
+    try:
+        temporary.write_text(
+            json.dumps(serializable, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        temporary.replace(p)
+    finally:
+        with suppress(FileNotFoundError):
+            temporary.unlink()
 
 
 def import_presets_json(path: str | Path) -> dict:
@@ -73,15 +126,20 @@ def import_presets_json(path: str | Path) -> dict:
     p = Path(path)
     if not p.is_file():
         raise FileNotFoundError(f"Preset file not found: {p}")
-    with open(p, "r", encoding="utf-8") as f:
-        raw = json.load(f)
+    if p.stat().st_size > MAX_PRESET_FILE_BYTES:
+        raise ValueError("Preset file exceeds the 1 MB safety limit.")
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Preset file contains invalid JSON at line {exc.lineno}.") from exc
+    if not isinstance(raw, dict) or not raw:
+        raise ValueError("Preset file must contain a non-empty JSON object.")
+    if len(raw) > MAX_IMPORTED_PRESETS:
+        raise ValueError(f"Preset file exceeds the {MAX_IMPORTED_PRESETS}-preset safety limit.")
     loaded = {}
     for name, item in raw.items():
-        if isinstance(item, dict) and "colors" in item and "background" in item:
-            loaded[name] = {
-                "colors": tuple(item["colors"]),
-                "background": item["background"],
-                "widths": tuple(item.get("widths", (1.35, 1.0, 0.68, 0.38, 0.12))),
-                "hide_highlights": bool(item.get("hide_highlights", False)),
-            }
+        clean_name = str(name).strip()
+        if clean_name in loaded:
+            raise ValueError(f"Preset file contains a duplicate normalized name: {clean_name!r}.")
+        loaded[clean_name] = validate_preset(name, item)
     return loaded

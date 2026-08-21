@@ -11,6 +11,15 @@ def calculate_stipple_points(min_x: float, min_y: float, max_x: float, max_y: fl
                             sample_fn, max_radius: float = 5.0,
                             gamma: float = 1.0, invert: bool = False) -> list[dict]:
     """Pure-math grid calculation: returns point records with coordinate, radius, and tone."""
+    values = (min_x, min_y, max_x, max_y, max_radius, gamma)
+    if any(not math.isfinite(float(value)) for value in values):
+        raise ValueError("Stipple bounds and rendering values must be finite.")
+    if max_x <= min_x or max_y <= min_y:
+        raise ValueError("Stipple bounds must have a positive width and height.")
+    if int(grid_cols) < 2 or int(grid_rows) < 2:
+        raise ValueError("Stipple grids require at least two rows and columns.")
+    if max_radius <= 0.0 or gamma <= 0.0:
+        raise ValueError("Stipple radius and gamma must be positive.")
     dx = (max_x - min_x) / max(1, grid_cols - 1)
     dy = (max_y - min_y) / max(1, grid_rows - 1)
     points = []

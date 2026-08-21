@@ -13,6 +13,7 @@
 - **Algorithmic Halftone & Stippling Engraving Generator**: converts sampled portrait luminance into variable-radius dot grids and algorithmic engraving vector layers.
 - **10 Curated Art Presets**: Ink, Neon, Blueprint, Sepia, Negative, Cyberpunk 2077, Vintage Engraving, Thermal Heatmap, Emerald Eco-Map, and Nordic Slate.
 - **Custom Palette JSON Import/Export**: share and load custom colorways as standard JSON files.
+- **Validated, Atomic Palette Files**: malformed colors, unsafe widths, oversized files, and ambiguous names are rejected before they reach the renderer; exports cannot leave half-written JSON.
 - Two data workflows: built-in OSM acquisition or any existing project vector layer.
 - One-click OSM Standard basemap plus safe small-area roads/buildings/land-use download.
 - Map-locked or screen-locked portrait masks with an optional frame overlay.
@@ -23,6 +24,7 @@
 - Line underlays for shadow/glow depth and tonal polygon fills.
 - Multiple vector layers in one composition.
 - Original renderer restoration, QML style export, and PNG/PDF/SVG artwork export.
+- Workflow-aware action states, halftone-only composition export, and frame visibility that is preserved across artwork exports.
 - Project-persistent frame and visual settings.
 - No pip dependency, cloud upload, API key, or mutation of source data.
 

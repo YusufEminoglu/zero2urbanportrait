@@ -3,7 +3,7 @@ name=02Urban Portrait - City as a Face
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Create live urban portraits from built-in OSM downloads or project vectors, with luminance styling and print-ready export.
-version=0.3.2
+version=0.4.0
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
@@ -23,6 +23,13 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
+    0.4.0 - Reliable Studio Workflow & Safe Palettes:
+        Fixed: Restore original styles now restores every portrait-styled source layer as its label promises.
+        Fixed: Artwork export temporarily hides the frame without changing the user's frame visibility preference.
+        Added: Step navigation readiness, halftone-only export support, clean OSM result selection, and completed-export feedback.
+        Added: Strict palette JSON validation, size and count limits, normalized-name collision checks, and atomic file saves.
+        Improved: Live refresh only runs for an active portrait; invalid stipple geometry and rendering values are rejected early.
+        Added: GUI smoke coverage on QGIS 3.44 LTR and QGIS 4.x.
     0.3.2 - Enhanced OSM Acquisition & High-Visibility UI:
         Added: High-visibility '🗺️ Add OSM Basemap' and '⬇️ Download This View (OSM)' action buttons with custom theme styling and tooltips.
         Added: Live canvas extent safety badge pill with real-time metric indicators and readiness feedback.

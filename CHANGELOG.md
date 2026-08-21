@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0] - 2026-08-21
+
+### Added
+- Workflow-aware navigation controls with clear prerequisite tooltips and completed-export feedback.
+- Halftone-only composition export support, so generated engraving layers can be exported without first styling a source layer.
+- Strict palette JSON validation for five renderer colors, background color, finite line widths, normalized names, a 1 MB file limit, and a 100-preset limit.
+- QGIS GUI smoke coverage on both QGIS 3.44 LTR and QGIS 4.x.
+
+### Changed
+- Palette exports now use atomic replacement to prevent interrupted writes from leaving truncated JSON files.
+- Live canvas refresh is scheduled only while a portrait is active, reducing idle work during ordinary map navigation.
+- Invalid stipple bounds, grid dimensions, radius, gamma, and non-finite values now fail early with actionable messages.
+
+### Fixed
+- **Restore original styles** now restores all portrait-styled layers, matching the action label and recovery guidance.
+- Artwork export temporarily hides the frame overlay and restores the user's previous visibility preference afterward, including failed exports.
+- OSM download results clear stale layer selections before selecting the newly created roads, buildings, and land-use layers.
+- Manual portrait updates now report render failures instead of leaking exceptions into the QGIS interface.
+
 ## [0.3.2] - 2026-08-21
 
 ### Added
