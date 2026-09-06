@@ -7,10 +7,10 @@ version=0.4.1
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
-about=02Urban Portrait transforms vector infrastructure into optical portraits, cartographic engravings, and graphic masks. Load a profile image, map it to a geographic frame, and style roads, buildings, points, or other vector layers from sampled pixel luminance without changing source geometries or attributes. Features interactive 3-stage visual workflow stepper with numbered circular badges, algorithmic vector stippling & halftone engraving generator, 10 curated artistic colorway presets with JSON import/export, prominent built-in OSM acquisition with live safety badges, live pan and zoom updates, and PNG/PDF/SVG export. Online User Manual & Documentation: https://geophilo.com/zero2urbanportrait/ | If you find this plugin helpful, please consider starring the repository on GitHub (https://github.com/YusufEminoglu/zero2urbanportrait)!
+about=02Urban Portrait transforms vector infrastructure into optical portraits, cartographic engravings, and graphic masks. Load a profile image, map it to a geographic frame, and style roads, buildings, points, or other vector layers from sampled pixel luminance without changing source geometries or attributes. Features interactive 3-stage visual workflow stepper with numbered circular badges, algorithmic vector stippling & halftone engraving generator, 10 curated artistic colorway presets with JSON import/export, prominent built-in OSM acquisition with live safety badges, live pan and zoom updates, and PNG/PDF/SVG export. Online User Manual & Documentation: https://geophilo.com/zero2urbanportrait/ | If you find this plugin helpful, please consider starring the repository on GitLab (https://gitlab.com/geospacephilo/zero2urbanportrait)!
 
-tracker=https://github.com/YusufEminoglu/zero2urbanportrait/issues
-repository=https://github.com/YusufEminoglu/zero2urbanportrait
+tracker=https://gitlab.com/geospacephilo/zero2urbanportrait/-/issues
+repository=https://gitlab.com/geospacephilo/zero2urbanportrait
 homepage=https://geophilo.com/zero2urbanportrait/
 
 category=Vector
