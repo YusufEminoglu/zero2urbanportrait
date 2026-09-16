@@ -3,14 +3,14 @@ name=02Urban Portrait - City as a Face
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Create live urban portraits from built-in OSM downloads or project vectors, with luminance styling and print-ready export.
-version=0.4.1
+version=0.4.2
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
-about=02Urban Portrait transforms vector infrastructure into optical portraits, cartographic engravings, and graphic masks. Load a profile image, map it to a geographic frame, and style roads, buildings, points, or other vector layers from sampled pixel luminance without changing source geometries or attributes. Features interactive 3-stage visual workflow stepper with numbered circular badges, algorithmic vector stippling & halftone engraving generator, 10 curated artistic colorway presets with JSON import/export, prominent built-in OSM acquisition with live safety badges, live pan and zoom updates, and PNG/PDF/SVG export. Online User Manual & Documentation: https://geophilo.com/zero2urbanportrait/ | If you find this plugin helpful, please consider starring the repository on GitLab (https://gitlab.com/geospacephilo/zero2urbanportrait)!
+about=02Urban Portrait transforms vector infrastructure into optical portraits, cartographic engravings, and graphic masks. Load a profile image, map it to a geographic frame, and style roads, buildings, points, or other vector layers from sampled pixel luminance without changing source geometries or attributes. Features interactive 3-stage visual workflow stepper with numbered circular badges, algorithmic vector stippling & halftone engraving generator, 10 curated artistic colorway presets with JSON import/export, prominent built-in OSM acquisition with live safety badges, live pan and zoom updates, and PNG/PDF/SVG export. Online User Manual & Documentation: https://geophilo.com/zero2urbanportrait/ | If you find this plugin helpful, please consider starring the repository on GitLab (https://gitlab.com/geophilo1/zero2urbanportrait)!
 
-tracker=https://gitlab.com/geospacephilo/zero2urbanportrait/-/issues
-repository=https://gitlab.com/geospacephilo/zero2urbanportrait
+tracker=https://gitlab.com/geophilo1/zero2urbanportrait/-/issues
+repository=https://gitlab.com/geophilo1/zero2urbanportrait
 homepage=https://geophilo.com/zero2urbanportrait/
 
 category=Vector
@@ -23,6 +23,7 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
+    0.4.2 - Upgraded official plugin icon to high-end tactile 3D brand identity with circular teal pedestal; synchronized documentation, repository and issue tracker endpoints to GeoPhilo and GitLab.
     0.4.0 - Reliable Studio Workflow & Safe Palettes:
         Fixed: Restore original styles now restores every portrait-styled source layer as its label promises.
         Fixed: Artwork export temporarily hides the frame without changing the user's frame visibility preference.
