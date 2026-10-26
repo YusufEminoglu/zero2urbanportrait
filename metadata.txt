@@ -20,8 +20,7 @@ icon=icons/icon.png
 experimental=False
 deprecated=False
 hasProcessingProvider=no
-license=GPL-3
-
+license=GPL-3.0-or-later
 changelog=
     0.5.0 - Reliable portraits, true halftone, preset paper:
         Fixed: Halftone dots all had one size (the size expression named a field that does not exist); invert and gamma were applied twice to the halftone.
