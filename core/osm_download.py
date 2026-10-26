@@ -28,7 +28,7 @@ from qgis.PyQt.QtCore import QVariant
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 MAX_SIDE_METRES = 6000.0
 MAX_AREA_SQUARE_METRES = 25_000_000.0
-USER_AGENT = "02UrbanPortrait/0.2 (+https://github.com/YusufEminoglu/zero2urbanportrait)"
+USER_AGENT = "02UrbanPortrait/0.5 (+https://geophilo.com/zero2urbanportrait/)"
 
 
 def extent_metrics(rectangle: QgsRectangle, crs) -> tuple[QgsRectangle, float, float, float]:

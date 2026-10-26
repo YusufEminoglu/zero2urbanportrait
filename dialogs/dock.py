@@ -6,7 +6,7 @@ from contextlib import suppress
 from pathlib import Path
 
 from qgis.PyQt.QtCore import QEvent, Qt, QTimer, pyqtSignal
-from qgis.PyQt.QtGui import QColor, QPixmap
+from qgis.PyQt.QtGui import QColor, QPainter, QPixmap
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -35,6 +35,7 @@ from qgis.gui import QgsRubberBand
 
 from ..core.engine import PortraitEngine, RenderOptions
 from ..core.presets import PRESETS, export_presets_json, import_presets_json
+from ..core.stipple import PATTERNS as STIPPLE_PATTERNS
 from ..tools.frame_tool import FrameMapTool
 from .theme import apply_adaptive_theme, dock_color_tokens
 
@@ -160,6 +161,8 @@ class UrbanPortraitDock(QDockWidget):
         self._connect_signals()
         self._refresh_layers()
         self._restore_project_state()
+        self._adopt_saved_portrait()
+        self._update_preset_swatch()
         self._update_controls()
 
     def _build_ui(self) -> None:
@@ -324,7 +327,20 @@ class UrbanPortraitDock(QDockWidget):
         self.auto_contrast = QCheckBox("Smart percentile stretch")
         self.auto_contrast.setChecked(True)
         self.invert = QCheckBox("Invert light and shadow")
+        self.preset_swatch = QLabel()
+        self.preset_swatch.setObjectName("presetSwatch")
+        # Fixed size: a pixmap drawn before the layout settles would be cut.
+        self.preset_swatch.setFixedSize(220, 22)
+        self.preset_swatch.setToolTip("Deep shadow to Paper, on the preset background")
+        self.paint_background = QCheckBox("Paint the map background with the preset paper colour")
+        self.paint_background.setChecked(True)
+        self.paint_background.setToolTip(
+            "Dark presets are designed for a dark paper. The original background "
+            "colour comes back with Restore original styles."
+        )
         form.addRow("Preset", self.preset)
+        form.addRow("", self.preset_swatch)
+        form.addRow(self.paint_background)
         palette_btn_row = QHBoxLayout()
         self.import_palette_btn = QPushButton("Import JSON…")
         self.export_palette_btn = QPushButton("Export JSON…")
@@ -371,17 +387,22 @@ class UrbanPortraitDock(QDockWidget):
         stipple_layout.addWidget(stipple_hint)
 
         stipple_row = QHBoxLayout()
-        stipple_row.addWidget(QLabel("Grid resolution:"))
+        stipple_row.addWidget(QLabel("Dots on long side:"))
         self.stipple_grid = QSpinBox()
         self.stipple_grid.setRange(20, 200)
         self.stipple_grid.setValue(60)
         self.stipple_grid.setSingleStep(10)
+        self.stipple_grid.setToolTip("Dot count along the longer frame side; cells stay square.")
         stipple_row.addWidget(self.stipple_grid)
+        self.stipple_pattern = QComboBox()
+        self.stipple_pattern.addItems(STIPPLE_PATTERNS)
+        self.stipple_pattern.setToolTip("Square grid, or offset rows like a classic print screen.")
+        stipple_row.addWidget(self.stipple_pattern)
+        stipple_layout.addLayout(stipple_row)
         self.stipple_btn = QPushButton("✨ Generate Halftone Layer")
         self.stipple_btn.setObjectName("accentButton")
         self.stipple_btn.clicked.connect(self._generate_halftone)
-        stipple_row.addWidget(self.stipple_btn)
-        stipple_layout.addLayout(stipple_row)
+        stipple_layout.addWidget(self.stipple_btn)
         self.style_layout.addWidget(stipple_box)
 
         self.next_to_export_btn = QPushButton("Proceed to Step 3: Export Artwork ➔")
@@ -403,7 +424,8 @@ class UrbanPortraitDock(QDockWidget):
         safe_box = QGroupBox("❻ Step 3.1 · Style Portability & Recovery")
         safe_layout = QVBoxLayout(safe_box)
         safe_hint = QLabel(
-            "Export one selected portrait layer as QML, or restore every source renderer instantly."
+            "Export one selected portrait layer as a self-contained QML (it keeps the tones for "
+            "this dataset's feature ids), or restore every source renderer and the map background."
         )
         safe_hint.setWordWrap(True)
         safe_hint.setObjectName("mutedHint")
@@ -482,8 +504,11 @@ class UrbanPortraitDock(QDockWidget):
         project.layersAdded.connect(self._project_layers_changed)
         project.layersRemoved.connect(self._project_layers_changed)
         self.follow_canvas.toggled.connect(self._follow_canvas_changed)
+        self.preset.currentTextChanged.connect(self._update_preset_swatch)
+        project.readProject.connect(self._project_reloaded)
+        project.cleared.connect(self._project_cleared)
         for widget in (self.preset, self.sampling, self.gamma, self.edge, self.opacity,
-                       self.max_features, self.auto_contrast, self.invert):
+                       self.max_features, self.auto_contrast, self.invert, self.paint_background):
             signal = getattr(widget, "currentTextChanged", None) or getattr(widget, "valueChanged", None) or getattr(widget, "toggled", None)
             if signal is not None:
                 signal.connect(self._style_changed)
@@ -495,7 +520,7 @@ class UrbanPortraitDock(QDockWidget):
     def _update_step_guide(self) -> None:
         has_image = self.engine.profile is not None
         has_layers = len(self.selected_layers()) > 0
-        has_portrait = bool(self.engine._styled_layers or self._halftone_layer_ids)
+        has_portrait = bool(self.engine.has_portrait() or self._halftone_layer_ids)
         current = self.tabs.currentIndex()
 
         if current == 0:
@@ -553,7 +578,7 @@ class UrbanPortraitDock(QDockWidget):
         if not hasattr(self, "apply_button"):
             return
         selected = self.selected_layers()
-        styled = self.engine._styled_layers
+        styled = self.engine.styled_layer_ids
         has_image = self.engine.profile is not None
         has_layers = bool(selected)
         has_styled = bool(styled)
@@ -562,7 +587,7 @@ class UrbanPortraitDock(QDockWidget):
 
         self.apply_button.setEnabled(can_shape)
         self.update_button.setEnabled(has_styled)
-        self.restore_button.setEnabled(has_styled)
+        self.restore_button.setEnabled(has_styled or self.engine.background_painted())
         self.export_button.setEnabled(
             len(selected) == 1 and selected[0].id() in styled
         )
@@ -672,6 +697,7 @@ class UrbanPortraitDock(QDockWidget):
             gamma=self.gamma.value(), invert=self.invert.isChecked(),
             auto_contrast=self.auto_contrast.isChecked(), edge_amount=self.edge.value(),
             max_features=self.max_features.value(), opacity=self.opacity.value(),
+            paint_background=self.paint_background.isChecked(),
         )
 
     def _apply(self) -> None:
@@ -692,7 +718,7 @@ class UrbanPortraitDock(QDockWidget):
         self._write_project_state()
 
     def _manual_update(self) -> None:
-        if not self.engine._styled_layers:
+        if not self.engine.has_portrait():
             self._set_status("Create a portrait before requesting an update.", error=True)
             return
         self.engine.options = self._options()
@@ -711,9 +737,9 @@ class UrbanPortraitDock(QDockWidget):
         if self._restoring_state:
             return
         self.engine.options = self._options()
-        if self.engine._styled_layers:
+        if self.engine.has_portrait() or self.engine.background_painted():
             self.engine.restyle()
-        if self.live.isChecked() and self.engine._styled_layers:
+        if self.live.isChecked() and self.engine.has_portrait():
             self._live_timer.start()
         self._write_project_state()
 
@@ -723,27 +749,30 @@ class UrbanPortraitDock(QDockWidget):
         if enabled and self.engine.profile is not None:
             self.engine.set_bounds(self.canvas.extent())
             self._show_frame(self.engine.bounds)
-            if self.engine._styled_layers:
+            if self.engine.has_portrait():
                 self._live_timer.start()
         self._write_project_state()
 
     def _schedule_live(self) -> None:
         if (self.live.isChecked() and self.engine.profile is not None
-                and self.engine._styled_layers):
+                and self.engine.has_portrait()):
             self._live_timer.start()
 
     def _live_refresh(self) -> None:
-        if self.engine.profile is None or not self.engine._styled_layers:
+        if self.engine.profile is None or not self.engine.has_portrait():
             return
-        if self.follow_canvas.isChecked():
-            self.engine.set_bounds(self.canvas.extent())
-            self._show_frame(self.engine.bounds)
-        self.engine.options = self._options()
-        self.engine.refresh()
+        try:
+            if self.follow_canvas.isChecked():
+                self.engine.set_bounds(self.canvas.extent())
+                self._show_frame(self.engine.bounds)
+            self.engine.options = self._options()
+            self.engine.refresh()
+        except (RuntimeError, ValueError) as exc:
+            self._set_status(f"Live update skipped: {exc}", error=True)
 
     def _restore(self) -> None:
         restored = self.engine.restore()
-        self._set_status(f"Restored {restored} original layer style(s).")
+        self._set_status(f"Restored {restored} original layer style(s) and the map background.")
         self._update_controls()
 
     def _export_qml(self) -> None:
@@ -771,7 +800,8 @@ class UrbanPortraitDock(QDockWidget):
         grid = self.stipple_grid.value()
         self.engine.options = self._options()
         try:
-            layer = self.engine.generate_halftone(grid_size=grid)
+            layer = self.engine.generate_halftone(
+                grid_size=grid, pattern=self.stipple_pattern.currentText())
             if layer:
                 self._halftone_layer_ids.add(layer.id())
                 self._set_status(f"Halftone stipple layer generated ({layer.featureCount()} dots).")
@@ -847,6 +877,8 @@ class UrbanPortraitDock(QDockWidget):
             "gamma": self.gamma.value(), "edge": self.edge.value(), "opacity": self.opacity.value(),
             "invert": self.invert.isChecked(), "auto_contrast": self.auto_contrast.isChecked(),
             "max_features": self.max_features.value(), "follow_canvas": self.follow_canvas.isChecked(),
+            "paint_background": self.paint_background.isChecked(),
+            "stipple_grid": self.stipple_grid.value(), "stipple_pattern": self.stipple_pattern.currentText(),
         }
         QgsProject.instance().writeEntry("zero2urbanportrait", "state", json.dumps(state))
 
@@ -874,10 +906,73 @@ class UrbanPortraitDock(QDockWidget):
             self.auto_contrast.setChecked(bool(state.get("auto_contrast", True)))
             self.max_features.setValue(int(state.get("max_features", 10000)))
             self.follow_canvas.setChecked(bool(state.get("follow_canvas", False)))
+            self.paint_background.setChecked(bool(state.get("paint_background", True)))
+            self.stipple_grid.setValue(int(state.get("stipple_grid", 60)))
+            self.stipple_pattern.setCurrentText(str(state.get("stipple_pattern", "Square")))
         except (TypeError, ValueError, json.JSONDecodeError):
             self._set_status("Saved portrait settings could not be restored.", error=True)
         finally:
             self._restoring_state = False
+        self.engine.options = self._options()
+
+    def _adopt_saved_portrait(self) -> None:
+        """Reconnect portrait layers that were saved with the project."""
+        adopted = self.engine.adopt_project_layers()
+        if not adopted:
+            return
+        if self.engine.profile is not None and self.engine.bounds is not None:
+            try:
+                self.engine.refresh()
+            except (RuntimeError, ValueError) as exc:
+                self._set_status(f"Saved portrait could not be refreshed: {exc}", error=True)
+                return
+            self._set_status(f"Reconnected {adopted} saved portrait layer(s); live updates are on.")
+        else:
+            self._set_status(
+                f"{adopted} saved portrait layer(s) are shown as saved. Upload the portrait "
+                "picture again to resume live updates, or restore the original styles."
+            )
+
+    def _project_cleared(self) -> None:
+        self._live_timer.stop()
+        self.engine.reset()
+        self._halftone_layer_ids.clear()
+        self._export_completed = False
+        self._preview_pixmap = QPixmap()
+        self.preview.clear()
+        self.preview.setText("No image selected")
+        self.image_path.setText("Choose JPG, PNG, TIFF, or WebP")
+        self.image_path.setToolTip("")
+        self.image_details.setText("Aspect ratio is always preserved; images are never stretched.")
+        self._show_frame(None)
+        self._refresh_layers()
+
+    def _project_reloaded(self, _document=None) -> None:
+        self._project_cleared()
+        self._restore_project_state()
+        self._adopt_saved_portrait()
+        self._update_controls()
+
+    def _update_preset_swatch(self, name: str | None = None) -> None:
+        preset = PRESETS.get(name or self.preset.currentText())
+        width, height = self.preset_swatch.width(), self.preset_swatch.height()
+        pixmap = QPixmap(width, height)
+        pixmap.fill(QColor(0, 0, 0, 0))
+        if preset is not None:
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setPen(QColor(preset["colors"][0]).darker(160))
+            painter.setBrush(QColor(preset["background"]))
+            painter.drawRoundedRect(0, 0, width - 1, height - 1, 6, 6)
+            inner = width - 12
+            painter.setPen(Qt.PenStyle.NoPen)
+            for index, color in enumerate(preset["colors"]):
+                left = 6 + inner * index // 5
+                right = 6 + inner * (index + 1) // 5
+                painter.setBrush(QColor(color))
+                painter.drawRoundedRect(left + 2, 5, right - left - 4, height - 10, 3, 3)
+            painter.end()
+        self.preset_swatch.setPixmap(pixmap)
 
     def changeEvent(self, event) -> None:
         super().changeEvent(event)
@@ -896,6 +991,10 @@ class UrbanPortraitDock(QDockWidget):
             project.layersAdded.disconnect(self._project_layers_changed)
         with suppress(TypeError, RuntimeError):
             project.layersRemoved.disconnect(self._project_layers_changed)
+        with suppress(TypeError, RuntimeError):
+            project.readProject.disconnect(self._project_reloaded)
+        with suppress(TypeError, RuntimeError):
+            project.cleared.disconnect(self._project_cleared)
         self.request_unset_tool.emit(self.frame_tool)
         self.frame_tool.dispose()
         self._frame_band.reset(QgsWkbTypes.GeometryType.PolygonGeometry)

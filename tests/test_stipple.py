@@ -42,3 +42,42 @@ def test_calculate_stipple_points_rejects_invalid_geometry(kwargs, message):
     arguments.update(kwargs)
     with pytest.raises(ValueError, match=message):
         calculate_stipple_points(**arguments)
+
+
+def test_dot_area_is_proportional_to_darkness():
+    from zero2urbanportrait.core.stipple import dot_radius
+    full = dot_radius(0, 1.0) ** 2
+    half = dot_radius(round(255 * 0.5), 1.0) ** 2
+    assert full == pytest.approx(1.0)
+    assert half / full == pytest.approx(0.5, abs=0.01)
+    assert dot_radius(255, 1.0) == 0.0
+
+
+def test_sample_fn_is_used_as_is():
+    # Inversion and gamma belong to the image profile; the grid must not redo them.
+    points = calculate_stipple_points(0.0, 0.0, 10.0, 10.0, 3, 3, lambda _u, _v: 0, max_radius=1.0)
+    assert all(point["luminance"] == 0 for point in points)
+    assert all(point["radius"] == pytest.approx(1.0) for point in points)
+
+
+def test_grid_shape_keeps_cells_square():
+    from zero2urbanportrait.core.stipple import grid_shape
+    columns, rows, dx, dy = grid_shape(200.0, 100.0, 21)
+    assert (columns, rows) == (21, 11)
+    assert dx == pytest.approx(dy)
+    columns, rows, dx, dy = grid_shape(100.0, 300.0, 31)
+    assert rows == 31 and dx == pytest.approx(dy)
+
+
+def test_hex_pattern_offsets_alternate_rows():
+    from zero2urbanportrait.core.stipple import grid_shape
+    columns, rows, dx, dy = grid_shape(100.0, 100.0, 11, "Hex")
+    assert dy == pytest.approx(dx * 3 ** 0.5 / 2, rel=0.08)
+    points = calculate_stipple_points(0.0, 0.0, 100.0, 100.0, columns, rows,
+                                      lambda _u, _v: 0, max_radius=1.0, pattern="Hex")
+    first_x = {}
+    for point in points:
+        first_x.setdefault(round(point["y"], 6), point["x"])
+    offsets = sorted(set(round(x, 6) for x in first_x.values()))
+    assert offsets == [0.0, pytest.approx(dx / 2)]
+    assert all(0.0 <= point["x"] <= 100.0 for point in points)

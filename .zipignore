@@ -11,3 +11,5 @@ __pycache__/
 # archive. Same convention as zero2cartolab and qgis_25d_styling.
 docs
 .github
+# dev/ holds the icon derivation script (dev/icon_lab/cutout.py).
+dev

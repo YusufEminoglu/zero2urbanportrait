@@ -137,7 +137,7 @@ class UrbanPortraitDock(_BaseDock):
         if hasattr(self, "export_map_button"):
             project_ids = set(QgsProject.instance().mapLayers())
             self._halftone_layer_ids.intersection_update(project_ids)
-            has_composition = bool(self.engine._styled_layers or self._halftone_layer_ids)
+            has_composition = bool(self.engine.has_portrait() or self._halftone_layer_ids)
             self.export_map_button.setEnabled(has_composition)
             self.next_to_export_btn.setEnabled(has_composition)
             self.next_to_export_btn.setToolTip(
@@ -233,7 +233,7 @@ class UrbanPortraitDock(_BaseDock):
 
     def _apply(self) -> None:
         super()._apply()
-        if self.engine._styled_layers and hasattr(self, "show_frame"):
+        if self.engine.has_portrait() and hasattr(self, "show_frame"):
             self.show_frame.setChecked(False)
             self._frame_band.hide()
 

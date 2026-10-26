@@ -86,3 +86,28 @@ def blend_edge(luminance: int, edge_strength: int, amount: float) -> int:
     mix = min(1.0, max(0.0, float(amount)))
     edge_tone = 255 - min(255, max(0, int(edge_strength)))
     return int(round((1.0 - mix) * luminance + mix * min(luminance, edge_tone)))
+
+
+TONE_LABELS = ("Deep shadow", "Shadow", "Midtone", "Highlight", "Paper")
+
+
+def tone_index(luminance: int) -> int:
+    """Map an 8-bit luminance to one of the five tone classes (0 = darkest)."""
+    return min(4, max(0, int(luminance)) // 52)
+
+
+def group_by_tone(values: dict) -> list[list]:
+    """Split ``{feature_id: luminance}`` into four explicit tone lists.
+
+    The fifth class, Paper, is deliberately not listed: the renderer's
+    catch-all category covers it together with every feature that was not
+    sampled, so the stored portrait stays small.
+    """
+    groups: list[list] = [[], [], [], []]
+    for feature_id, luminance in values.items():
+        index = tone_index(luminance)
+        if index < 4:
+            groups[index].append(feature_id)
+    for group in groups:
+        group.sort()
+    return groups

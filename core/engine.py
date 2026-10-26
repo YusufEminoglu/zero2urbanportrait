@@ -1,4 +1,11 @@
-"""Live luminance sampling and non-destructive QGIS renderer engine."""
+"""Live luminance sampling and non-destructive QGIS renderer engine.
+
+The portrait renderer is a plain ``QgsCategorizedSymbolRenderer`` on ``$id``
+whose four tone categories hold the sampled feature ids and whose catch-all
+category draws the Paper tone. Nothing in it calls back into Python, so the
+map renders at native speed in QGIS' parallel render threads, a saved project
+shows the same portrait without the plugin, and an exported QML is complete.
+"""
 from __future__ import annotations
 
 from contextlib import suppress
@@ -7,10 +14,12 @@ from pathlib import Path
 
 from qgis.PyQt.QtCore import QObject, Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor, QImage, QImageReader, qAlpha, qBlue, qGray, qGreen, qRed
+from qgis.PyQt.QtXml import QDomDocument
 from qgis.core import (
+    QgsCategorizedSymbolRenderer,
     QgsCoordinateTransform,
-    QgsExpression,
-    QgsExpressionFunction,
+    QgsCsException,
+    QgsFeatureRenderer,
     QgsFeatureRequest,
     QgsFillSymbol,
     QgsGeometry,
@@ -18,53 +27,30 @@ from qgis.core import (
     QgsMarkerSymbol,
     QgsPointXY,
     QgsProject,
+    QgsReadWriteContext,
     QgsRectangle,
-    QgsRuleBasedRenderer,
+    QgsRendererCategory,
     QgsSimpleLineSymbolLayer,
     QgsVectorLayer,
     QgsWkbTypes,
 )
 
-from .presets import PRESETS, TONE_BREAKS
+from .presets import PRESETS
 from .profile import (
+    TONE_LABELS,
     adjust_luminance,
     blend_edge,
     fit_bounds_to_aspect,
+    group_by_tone,
     map_to_normalized,
     quantile_limits,
 )
 
 
-_LUMINANCE_CACHE: dict[tuple[str, int], int] = {}
-_FUNCTION_NAME = "zero2portrait_luma"
-
-
-class _LuminanceFunction(QgsExpressionFunction):
-    def __init__(self):
-        super().__init__(_FUNCTION_NAME, 2, "02Urban Portrait")
-
-    def func(self, values, context, parent, node=None):  # noqa: D401
-        """Return cached luminance for a layer id and feature id."""
-        del context, parent, node
-        try:
-            return _LUMINANCE_CACHE.get((str(values[0]), int(values[1])), 255)
-        except (TypeError, ValueError, IndexError):
-            return 255
-
-
-_EXPRESSION_FUNCTION = _LuminanceFunction()
-
-
-def register_expression_function() -> None:
-    """Register the renderer expression once per QGIS process."""
-    if not QgsExpression.isFunctionName(_FUNCTION_NAME):
-        QgsExpression.registerFunction(_EXPRESSION_FUNCTION)
-
-
-def unregister_expression_function() -> None:
-    """Remove the renderer expression when the plugin is unloaded."""
-    if QgsExpression.isFunctionName(_FUNCTION_NAME):
-        QgsExpression.unregisterFunction(_FUNCTION_NAME)
+STYLED_PROPERTY = "zero2urbanportrait/styled"
+ORIGINAL_RENDERER_PROPERTY = "zero2urbanportrait/original_renderer"
+PROJECT_SCOPE = "zero2urbanportrait"
+ORIGINAL_BACKGROUND_KEY = "original_background"
 
 
 @dataclass
@@ -77,6 +63,27 @@ class RenderOptions:
     edge_amount: float = 0.0
     max_features: int = 10000
     opacity: float = 1.0
+    paint_background: bool = True
+
+
+def renderer_to_xml(renderer) -> str:
+    """Serialize a feature renderer so it can live in a layer property."""
+    document = QDomDocument("renderer")
+    element = renderer.save(document, QgsReadWriteContext())
+    document.appendChild(element)
+    return document.toString()
+
+
+def renderer_from_xml(xml: str):
+    """Rebuild a renderer stored by :func:`renderer_to_xml`, or ``None``."""
+    if not xml:
+        return None
+    document = QDomDocument()
+    document.setContent(str(xml))
+    element = document.documentElement()
+    if element.isNull():
+        return None
+    return QgsFeatureRenderer.load(element, QgsReadWriteContext())
 
 
 class ImageProfile:
@@ -116,6 +123,7 @@ class ImageProfile:
         return quantile_limits(histogram, 0.01)
 
     def sample(self, u: float, v: float, options: RenderOptions) -> int:
+        """Return the final 0-255 tone at (u, v): contrast, gamma, invert, edges."""
         x = min(self.image.width() - 1, max(0, int(round(u * (self.image.width() - 1)))))
         y = min(self.image.height() - 1, max(0, int(round(v * (self.image.height() - 1)))))
         pixel = self.image.pixel(x, y)
@@ -154,7 +162,53 @@ class PortraitEngine(QObject):
         self.options = RenderOptions()
         self._original_renderers: dict[str, object] = {}
         self._styled_layers: set[str] = set()
+        self._samples: dict[str, dict[int, int]] = {}
 
+    # ------------------------------------------------------------ state
+    @property
+    def styled_layer_ids(self) -> set[str]:
+        return set(self._styled_layers)
+
+    def has_portrait(self) -> bool:
+        return bool(self._styled_layers)
+
+    @staticmethod
+    def background_painted() -> bool:
+        """True while the map background carries a preset paper colour."""
+        saved, has_saved = QgsProject.instance().readEntry(PROJECT_SCOPE, ORIGINAL_BACKGROUND_KEY, "")
+        return bool(has_saved and saved)
+
+    def reset(self) -> None:
+        """Forget every layer, image, and frame (the project was replaced)."""
+        self.profile = None
+        self.frame_container = None
+        self.bounds = None
+        self._original_renderers.clear()
+        self._styled_layers.clear()
+        self._samples.clear()
+
+    def adopt_project_layers(self) -> int:
+        """Re-attach portrait layers saved in the current project.
+
+        Their saved renderer already draws the portrait; adopting them makes
+        live updates, restyling, and *Restore original styles* work again.
+        """
+        adopted = 0
+        for layer in QgsProject.instance().mapLayers().values():
+            if not isinstance(layer, QgsVectorLayer) or not layer.customProperty(STYLED_PROPERTY, False):
+                continue
+            if layer.id() in self._styled_layers:
+                continue
+            original = None
+            with suppress(Exception):
+                original = renderer_from_xml(layer.customProperty(ORIGINAL_RENDERER_PROPERTY, ""))
+            if original is not None:
+                self._original_renderers[layer.id()] = original
+            self._styled_layers.add(layer.id())
+            adopted += 1
+        return adopted
+
+    # ------------------------------------------------------------ image and frame
     def set_image(self, path: str) -> None:
         self.profile = ImageProfile.load(path)
         if self.frame_container is not None:
@@ -177,54 +231,64 @@ class PortraitEngine(QObject):
         )
         self.bounds = QgsRectangle(*fitted)
 
+    # ------------------------------------------------------------ styling
     def apply(self, layers: list[QgsVectorLayer]) -> tuple[int, int]:
         if self.profile is None:
             raise ValueError("Choose a portrait image first.")
         if self.bounds is None:
             self.set_bounds(self.canvas.extent())
-        register_expression_function()
         total_sampled = 0
         total_visible = 0
+        styled = 0
         for layer in layers:
-            if not layer.isValid():
+            if not layer.isValid() or not layer.isSpatial() or layer.renderer() is None:
                 continue
             if layer.id() not in self._original_renderers:
-                self._original_renderers[layer.id()] = layer.renderer().clone()
+                original = layer.renderer().clone()
+                self._original_renderers[layer.id()] = original
+                with suppress(Exception):
+                    layer.setCustomProperty(ORIGINAL_RENDERER_PROPERTY, renderer_to_xml(original))
             sampled, visible = self._sample_layer(layer)
             total_sampled += sampled
             total_visible += visible
             layer.setRenderer(self._build_renderer(layer))
-            layer.setCustomProperty("zero2urbanportrait/styled", True)
+            layer.setCustomProperty(STYLED_PROPERTY, True)
             layer.triggerRepaint()
             self._styled_layers.add(layer.id())
+            styled += 1
+        if styled == 0:
+            raise ValueError("None of the selected layers has geometry to style.")
+        self._apply_background()
         self.canvas.refresh()
-        self.message.emit(f"Styled {len(layers)} layer(s); sampled {total_sampled} of {total_visible} visible features.")
+        self.message.emit(
+            f"Styled {styled} layer(s); sampled {total_sampled} of {total_visible} visible features."
+        )
         return total_sampled, total_visible
 
     def refresh(self) -> tuple[int, int]:
-        project = QgsProject.instance()
-        layers = [project.mapLayer(layer_id) for layer_id in self._styled_layers]
-        valid = [layer for layer in layers if isinstance(layer, QgsVectorLayer) and layer.isValid()]
-        if not valid or self.profile is None or self.bounds is None:
+        """Resample every styled layer for the current view and frame."""
+        if self.profile is None or self.bounds is None:
             return 0, 0
         total_sampled = 0
         total_visible = 0
-        for layer in valid:
+        for layer in self._live_layers():
             sampled, visible = self._sample_layer(layer)
             total_sampled += sampled
             total_visible += visible
+            layer.setRenderer(self._build_renderer(layer))
             layer.triggerRepaint()
         self.canvas.refresh()
         self.message.emit(f"Live update: {total_sampled} sampled feature(s).")
         return total_sampled, total_visible
 
     def restyle(self) -> None:
-        project = QgsProject.instance()
-        for layer_id in tuple(self._styled_layers):
-            layer = project.mapLayer(layer_id)
-            if isinstance(layer, QgsVectorLayer):
+        """Re-apply the preset to the existing samples without resampling."""
+        for layer in self._live_layers():
+            if layer.id() in self._samples:
                 layer.setRenderer(self._build_renderer(layer))
                 layer.triggerRepaint()
+        if self._styled_layers or self.background_painted():
+            self._apply_background()
         self.canvas.refresh()
 
     def restore(self, layer_ids: set[str] | None = None) -> int:
@@ -236,22 +300,61 @@ class PortraitEngine(QObject):
             renderer = self._original_renderers.get(layer_id)
             if isinstance(layer, QgsVectorLayer) and renderer is not None:
                 layer.setRenderer(renderer.clone())
-                layer.removeCustomProperty("zero2urbanportrait/styled")
+                layer.removeCustomProperty(STYLED_PROPERTY)
+                layer.removeCustomProperty(ORIGINAL_RENDERER_PROPERTY)
                 layer.triggerRepaint()
                 restored += 1
             self._styled_layers.discard(layer_id)
             self._original_renderers.pop(layer_id, None)
-            stale = [key for key in _LUMINANCE_CACHE if key[0] == layer_id]
-            for key in stale:
-                _LUMINANCE_CACHE.pop(key, None)
+            self._samples.pop(layer_id, None)
+        if not self._styled_layers:
+            self._restore_background()
         self.canvas.refresh()
         self.message.emit(f"Restored {restored} original renderer(s).")
         return restored
 
     def dispose(self) -> None:
         self.restore()
-        unregister_expression_function()
 
+    def _live_layers(self) -> list[QgsVectorLayer]:
+        project = QgsProject.instance()
+        layers = []
+        for layer_id in tuple(self._styled_layers):
+            layer = project.mapLayer(layer_id)
+            if isinstance(layer, QgsVectorLayer) and layer.isValid():
+                layers.append(layer)
+            else:
+                self._styled_layers.discard(layer_id)
+                self._original_renderers.pop(layer_id, None)
+                self._samples.pop(layer_id, None)
+        return layers
+
+    # ------------------------------------------------------------ paper colour
+    def _apply_background(self) -> None:
+        if not self.options.paint_background:
+            self._restore_background()
+            return
+        preset = PRESETS.get(self.options.preset, PRESETS["Ink Portrait"])
+        project = QgsProject.instance()
+        saved, has_saved = project.readEntry(PROJECT_SCOPE, ORIGINAL_BACKGROUND_KEY, "")
+        if not (has_saved and saved):
+            project.writeEntry(PROJECT_SCOPE, ORIGINAL_BACKGROUND_KEY,
+                               self.canvas.canvasColor().name(QColor.NameFormat.HexArgb))
+        self._set_background(QColor(preset["background"]))
+
+    def _restore_background(self) -> None:
+        project = QgsProject.instance()
+        saved, has_saved = project.readEntry(PROJECT_SCOPE, ORIGINAL_BACKGROUND_KEY, "")
+        if has_saved and saved and QColor(saved).isValid():
+            self._set_background(QColor(saved))
+        project.removeEntry(PROJECT_SCOPE, ORIGINAL_BACKGROUND_KEY)
+
+    def _set_background(self, color: QColor) -> None:
+        with suppress(AttributeError):
+            QgsProject.instance().setBackgroundColor(color)
+        self.canvas.setCanvasColor(color)
+
+    # ------------------------------------------------------------ sampling
     def _sample_layer(self, layer: QgsVectorLayer) -> tuple[int, int]:
         if self.profile is None or self.bounds is None:
             raise RuntimeError("Portrait image and geographic frame are required.")
@@ -259,39 +362,39 @@ class PortraitEngine(QObject):
         canvas_crs = self.canvas.mapSettings().destinationCrs()
         to_layer = QgsCoordinateTransform(canvas_crs, layer.crs(), project)
         to_canvas = QgsCoordinateTransform(layer.crs(), canvas_crs, project)
-        request_rect = to_layer.transformBoundingBox(self.canvas.extent())
-        request = QgsFeatureRequest().setFilterRect(request_rect).setNoAttributes()
+        request = QgsFeatureRequest().setNoAttributes()
+        # A view that cannot be expressed in the layer CRS (e.g. a polar view
+        # of a global layer) samples everything and lets the frame decide.
+        with suppress(QgsCsException):
+            request.setFilterRect(to_layer.transformBoundingBox(self.canvas.extent()))
         limit = max(100, int(self.options.max_features))
-        values: dict[tuple[str, int], int] = {}
+        bounds_tuple = (self.bounds.xMinimum(), self.bounds.yMinimum(),
+                        self.bounds.xMaximum(), self.bounds.yMaximum())
+        geometry_type = layer.geometryType()
+        values: dict[int, int] = {}
         visible = 0
-        sampled = 0
         for feature in layer.getFeatures(request):
             visible += 1
-            if sampled >= limit:
+            if len(values) >= limit:
                 continue
             geometry = feature.geometry()
             if geometry is None or geometry.isEmpty():
                 continue
             geometry = QgsGeometry(geometry)
-            with suppress(Exception):
+            try:
                 geometry.transform(to_canvas)
-            points = self._sample_points(geometry, layer.geometryType())
+            except QgsCsException:
+                continue
             luminances = []
-            bounds_tuple = (self.bounds.xMinimum(), self.bounds.yMinimum(),
-                            self.bounds.xMaximum(), self.bounds.yMaximum())
-            for point in points:
+            for point in self._sample_points(geometry, geometry_type):
                 normalized = map_to_normalized(point.x(), point.y(), bounds_tuple)
                 if normalized is not None:
                     luminances.append(self.profile.sample(normalized.u, normalized.v, self.options))
-            value = int(round(sum(luminances) / len(luminances))) if luminances else 255
-            values[(layer.id(), int(feature.id()))] = value
-            sampled += 1
-        stale = [key for key in _LUMINANCE_CACHE if key[0] == layer.id()]
-        for key in stale:
-            _LUMINANCE_CACHE.pop(key, None)
-        _LUMINANCE_CACHE.update(values)
-        self.progress.emit(sampled, visible)
-        return sampled, visible
+            if luminances:
+                values[int(feature.id())] = int(round(sum(luminances) / len(luminances)))
+        self._samples[layer.id()] = values
+        self.progress.emit(len(values), visible)
+        return len(values), visible
 
     def _sample_points(self, geometry: QgsGeometry, geometry_type: int) -> list[QgsPointXY]:
         mode = self.options.sampling
@@ -310,24 +413,22 @@ class PortraitEngine(QObject):
                 points.append(centroid.asPoint())
         return points
 
-    def _build_renderer(self, layer: QgsVectorLayer) -> QgsRuleBasedRenderer:
+    # ------------------------------------------------------------ renderer
+    def _build_renderer(self, layer: QgsVectorLayer) -> QgsCategorizedSymbolRenderer:
         preset = PRESETS.get(self.options.preset, PRESETS["Ink Portrait"])
-        root = QgsRuleBasedRenderer.Rule(None)
-        layer_id = layer.id().replace("'", "''")
+        groups = group_by_tone(self._samples.get(layer.id(), {}))
+        opacity = max(0.0, min(1.0, self.options.opacity))
+        renderer = QgsCategorizedSymbolRenderer("$id", [])
         for index in range(5):
-            low, high = TONE_BREAKS[index], TONE_BREAKS[index + 1]
             symbol = self._make_symbol(layer.geometryType(), preset, index)
-            symbol.setOpacity(max(0.0, min(1.0, self.options.opacity)))
-            if index == 4 and preset["hide_highlights"]:
-                symbol.setOpacity(0.0)
-            rule = QgsRuleBasedRenderer.Rule(symbol)
-            rule.setLabel(("Deep shadow", "Shadow", "Midtone", "Highlight", "Paper")[index])
-            rule.setFilterExpression(
-                f"{_FUNCTION_NAME}('{layer_id}', $id) >= {low} AND "
-                f"{_FUNCTION_NAME}('{layer_id}', $id) < {high}"
-            )
-            root.appendChild(rule)
-        return QgsRuleBasedRenderer(root)
+            symbol.setOpacity(opacity)
+            # Category value: the feature ids of this tone, or "" for the
+            # catch-all Paper class that also covers unsampled features.
+            value = groups[index] if index < 4 else ""
+            render = not (index == 4 and preset["hide_highlights"])
+            label = TONE_LABELS[index] if index < 4 else "Paper and unsampled"
+            renderer.addCategory(QgsRendererCategory(value, symbol, label, render))
+        return renderer
 
     @staticmethod
     def _make_symbol(geometry_type: int, preset: dict, index: int):
@@ -361,29 +462,33 @@ class PortraitEngine(QObject):
             "size": str(max(0.4, width * 1.8)),
         })
 
-    def generate_halftone(self, grid_size: int = 60):
-        """Generate variable-radius halftone stippling memory layer from current portrait & extent."""
+    # ------------------------------------------------------------ halftone
+    def generate_halftone(self, grid_size: int = 60, pattern: str = "Square"):
+        """Add a variable-radius halftone layer for the current portrait and frame."""
         if self.profile is None:
             raise ValueError("Load an image first.")
         if self.bounds is None:
             self.set_bounds(self.canvas.extent())
         from .stipple import generate_stipple_layer
-        crs_auth_id = self.canvas.mapSettings().destinationCrs().authid()
+        preset = PRESETS.get(self.options.preset, PRESETS["Ink Portrait"])
         bounds_tuple = (
             self.bounds.xMinimum(), self.bounds.yMinimum(),
             self.bounds.xMaximum(), self.bounds.yMaximum()
         )
         layer = generate_stipple_layer(
             bounds=bounds_tuple,
-            crs_auth_id=crs_auth_id,
+            crs=self.canvas.mapSettings().destinationCrs(),
             profile=self.profile,
             render_options=self.options,
-            grid_cols=grid_size,
-            grid_rows=grid_size,
+            grid_size=grid_size,
+            pattern=pattern,
+            ink_color=preset["colors"][0],
             layer_name=f"Urban Portrait Halftone ({self.options.preset})",
         )
         if layer is not None and layer.isValid():
             QgsProject.instance().addMapLayer(layer)
+            if self.options.paint_background:
+                self._apply_background()
             self.canvas.refresh()
-            self.message.emit(f"Generated Halftone Stipple layer ({layer.featureCount()} dots).")
+            self.message.emit(f"Generated halftone layer ({layer.featureCount()} dots).")
         return layer

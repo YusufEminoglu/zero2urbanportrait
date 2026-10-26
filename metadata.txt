@@ -7,7 +7,7 @@ version=0.4.2
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
-about=02Urban Portrait transforms vector infrastructure into optical portraits, cartographic engravings, and graphic masks. Load a profile image, map it to a geographic frame, and style roads, buildings, points, or other vector layers from sampled pixel luminance without changing source geometries or attributes. Features interactive 3-stage visual workflow stepper with numbered circular badges, algorithmic vector stippling & halftone engraving generator, 10 curated artistic colorway presets with JSON import/export, prominent built-in OSM acquisition with live safety badges, live pan and zoom updates, and PNG/PDF/SVG export. Online User Manual & Documentation: https://geophilo.com/zero2urbanportrait/ | If you find this plugin helpful, please consider starring the repository on GitLab (https://gitlab.com/geophilo1/zero2urbanportrait)!
+about=02Urban Portrait transforms vector infrastructure into optical portraits, cartographic engravings, and graphic masks. Load a profile image, map it to a geographic frame, and style roads, buildings, points, or other vector layers from sampled pixel luminance without changing source geometries or attributes. Features interactive 3-stage visual workflow stepper with numbered circular badges, a tone-accurate square or hex halftone generator, 10 curated artistic colorway presets with JSON import/export and preset paper colours, prominent built-in OSM acquisition with live safety badges, live pan and zoom updates, portraits that survive saving the project, and PNG/PDF/SVG export. Online User Manual & Documentation: https://geophilo.com/zero2urbanportrait/ | If you find this plugin helpful, please consider starring the repository on GitLab (https://gitlab.com/geophilo1/zero2urbanportrait)!
 
 tracker=https://gitlab.com/geophilo1/zero2urbanportrait/-/issues
 repository=https://gitlab.com/geophilo1/zero2urbanportrait
@@ -23,6 +23,14 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
+    0.5.0 - Reliable portraits, true halftone, preset paper:
+        Fixed: Halftone dots all had one size (the size expression named a field that does not exist); invert and gamma were applied twice to the halftone.
+        Fixed: Saved projects reopened with blank portrait layers, exported QML only worked in the session that wrote it, and Restore failed after reopening.
+        Fixed: Preset background colours were never applied, so dark presets drew and exported on white; export kept the canvas ratio only up to 2:1.
+        Changed: Self-contained categorized renderer on feature ids, no Python callback per feature: native render speed, saved projects work without the plugin.
+        Changed: Halftone dot area follows darkness, cells stay square on any frame, dots use the preset ink; new square or hex pattern.
+        Added: Preset paper colour on the map and in exports (reversible), preset colour swatch, reconnection of saved portrait layers.
+        Changed: New icon, the portrait relief on a transparent background without margin.
     0.4.2 - Upgraded official plugin icon to high-end tactile 3D brand identity with circular teal pedestal; synchronized documentation, repository and issue tracker endpoints to GeoPhilo and GitLab.
     0.4.0 - Reliable Studio Workflow & Safe Palettes:
         Fixed: Restore original styles now restores every portrait-styled source layer as its label promises.

@@ -45,14 +45,14 @@
 <main class="chrome-content">
 <h1>02Urban Portrait</h1>
 <p class="repo-links"><a href="https://github.com/YusufEminoglu/zero2urbanportrait">GitHub</a> &middot; <a href="https://gitlab.com/yusufeminoglu/zero2urbanportrait">GitLab</a></p>
-<p>City as a Face &mdash; generative cartographic portrait studio &bull; v0.4.1</p>
+<p>City as a Face &mdash; generative cartographic portrait studio &bull; v0.5.0</p>
 <div class="video-embed">
   <iframe src="https://www.youtube-nocookie.com/embed/hgn8p2Dns-A" title="02Urban Portrait &mdash; video walkthrough" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
 </div>
 
 <section id="overview">
 <h2 id="overview">1. Overview</h2>
-<p>02Urban Portrait transforms urban vector infrastructure (roads, buildings, points) into optical portraits and cartographic engravings. The user loads a portrait image, maps it to a geographic frame, and the plugin styles vector features by luminance values sampled from the image pixels or generates an algorithmic variable-radius halftone stippling layer. This is a generative, non-destructive cartographic technique&mdash;no source geometry or attributes are ever modified. The plugin applies rule-based renderers across 10 master presets (with JSON import/export), each mapped to per-preset colours, line widths, and transparencies.</p>
+<p>02Urban Portrait transforms urban vector infrastructure (roads, buildings, points) into optical portraits and cartographic engravings. The user loads a portrait image, maps it to a geographic frame, and the plugin styles vector features by luminance values sampled from the image pixels or generates an algorithmic variable-radius halftone stippling layer. This is a generative, non-destructive cartographic technique&mdash;no source geometry or attributes are ever modified. The plugin applies self-contained categorized renderers across 10 master presets (with JSON import/export), each mapped to per-preset colours, line widths, and transparencies.</p>
 <p>The plugin is guided by an interactive 3-stage visual workflow stepper with numbered circular nodes (<strong>❶ Set up</strong> &rarr; <strong>❷ Shape</strong> &rarr; <strong>❸ Export</strong>) and dynamic action guides. Tab 1 handles data acquisition and geographic frame placement; Tab 2 provides art-direction presets, halftone engraving, and live rendering; Tab 3 handles QML style export and composition artwork output.</p>
 </section>
 
@@ -66,7 +66,7 @@
     <li><strong>Image loading:</strong> Supports PNG, JPG, JPEG, TIFF, TIF, WebP, BMP. Auto-scales images larger than 1800&times;1800 px. Preserves EXIF orientation via <code>QImageReader.setAutoTransform(True)</code>.</li>
     <li><strong>Geographic frame:</strong> The image aspect ratio is fitted to a geographic rectangle (canvas extent or user-drawn frame) with letterbox/pillarbox centring and no stretching. Can be screen-locked (frame follows pan/zoom) or fixed to geographic coordinates.</li>
     <li><strong>Sampling:</strong> For each visible feature within the frame, the plugin computes sampling points by geometry type and sampling mode, maps world coordinates to normalised image coordinates (flipping Y), samples luminance from the downscaled image, and applies auto-contrast stretch, gamma correction, optional inversion, and optional edge emphasis.</li>
-    <li><strong>Rendering:</strong> A <code>QgsRuleBasedRenderer</code> with 5 tone rules applies per-preset colours, line widths (deepest tones widest, lightest tones thinnest), and transparencies. A custom QGIS expression function <code>zero2portrait_luma(layer_id, feature_id)</code> reads from an in-process cache to drive the rule filters.</li>
+    <li><strong>Rendering:</strong> A <code>QgsCategorizedSymbolRenderer</code> on <code>$id</code> applies per-preset colours, line widths (deepest tones widest, lightest tones thinnest), and transparencies. Each of the four darker tone categories holds the ids of the features sampled into it; the fifth, catch-all category draws the Paper tone and every feature that was not sampled. Nothing in the renderer calls back into Python, so QGIS draws it at native speed in its parallel render threads, a saved project shows the same portrait without the plugin installed, and an exported QML is complete for that dataset.</li>
   </ol>
 </div>
 
@@ -79,7 +79,7 @@
 </table>
 
 <h3>2.3 Five Tone Rules</h3>
-<p>Five equal luminance intervals defined by <code>TONE_BREAKS = (0, 52, 104, 156, 208, 256)</code>. Each gets per-preset colour, line width (descending from ~1.55 mm for darkest to ~0.10 mm for lightest), and opacity. When <code>hide_highlights</code> is active, the top band ("Paper") has opacity 0.0, letting the background show through&mdash;this is how the Ink Portrait and Sepia Blocks presets create white-space faces.</p>
+<p>Five equal luminance intervals defined by <code>TONE_BREAKS = (0, 52, 104, 156, 208, 256)</code>. Each gets per-preset colour, line width (descending from ~1.55 mm for darkest to ~0.10 mm for lightest), and opacity. When <code>hide_highlights</code> is active, the top band ("Paper", which also covers unsampled features) is not drawn, letting the paper show through&mdash;this is how the Ink Portrait and Sepia Blocks presets create white-space faces.</p>
 
 <h3>2.4 Rendering Enhancements</h3>
 <div class="chrome-card">
@@ -90,7 +90,13 @@
   <p><strong>Line caps and joins:</strong> All lines use round cap and round join styles for organic, hand-drawn quality.</p>
 </div>
 
-<h3>2.5 Built-In OSM Downloader</h3>
+<h3>2.5 Halftone and Paper Colour</h3>
+<div class="chrome-card">
+  <p><strong>Halftone layer:</strong> <em>Generate Halftone Layer</em> writes a point memory layer over the portrait frame. <em>Dots on long side</em> sets the dot count along the longer frame side; the shorter side receives as many as keep the cells square. <em>Square</em> places dots on a regular grid, <em>Hex</em> offsets alternate rows like a classic print screen. Each dot's <em>area</em> is proportional to the darkness of its tone (radius &prop; &radic;darkness), and the darkest tone covers its whole cell, so midtones keep their true ink share. The tone already includes contrast stretch, gamma, inversion and edge emphasis, applied exactly once. Dots are sized in map units through the <code>radius</code> field and inked with the preset's deepest colour.</p>
+  <p><strong>Paper colour:</strong> with <em>Paint the map background with the preset paper colour</em> on, creating a portrait or a halftone layer sets the project background to the preset's paper, which the dark presets (Neon Night, Blueprint, Negative City, Cyberpunk 2077, Thermal Heatmap, Emerald Eco-Map) are designed for. The previous colour is stored in the project and returns with <em>Restore original styles</em>. Artwork exports print on the same paper.</p>
+</div>
+
+<h3>2.6 Built-In OSM Downloader</h3>
 <div class="chrome-card">
   <h4>One-Click City Data Acquisition</h4>
   <p>Adds an XYZ tile OpenStreetMap basemap (with duplicate detection). Downloads the current canvas view via a single Overpass API query (with custom User-Agent header). Validates that viewport is within 6 km &times; 6 km and 25 km<sup>2</sup>. Parses the OSM XML response through QGIS/GDAL OGR driver, splitting into three specialised memory layers: OSM Roads (MultiLineString, filtered by <code>highway</code> tag), OSM Buildings (MultiPolygon, filtered by <code>building</code> tag), and OSM Land Use (MultiPolygon, filtered by <code>landuse</code> tag). Each layer carries <code>osm_id</code>, <code>name</code>, and <code>class</code> fields. Tags are extracted from the <code>other_tags</code> HSTORE string via regex.</p>
@@ -155,19 +161,19 @@
   <li>Select vector layers to stylise from the list.</li>
   <li>Switch to the <strong>Portrait</strong> tab. Choose an art preset, adjust gamma, edge emphasis, and feature limit.</li>
   <li>Click <em>Create portrait</em>. The layers are restyled in place with the rule-based renderer. Pan and zoom with live update enabled to see the portrait react.</li>
-  <li>Switch to the <strong>Export</strong> tab to export as PNG, PDF, or SVG. Use "Restore original styles" to undo all changes. Use "Export QML" to save a layer's portrait style.</li>
+  <li>Switch to the <strong>Export</strong> tab to export as PNG, PDF, or SVG. Use "Restore original styles" to undo all changes, including the paper colour. Use "Export QML" to save a layer's portrait style; it reproduces the portrait on the same dataset (same feature ids).</li>
 </ol>
 </section>
 
 <section id="technical">
 <h2 id="technical">7. Technical Notes</h2>
 <ul>
-  <li><strong>Non-destructive operation:</strong> Original renderers are cloned and stored before styling is applied. All operations are reversible via Restore. No source geometry or attributes are modified.</li>
-  <li><strong>Custom expression function:</strong> <code>zero2portrait_luma(layer_id, feature_id)</code> is registered at plugin load and removed at unload. This function reads from an in-process dictionary keyed by <code>(layer_id, feature_id)</code>.</li>
+  <li><strong>Non-destructive operation:</strong> Original renderers are cloned before styling is applied and also stored, as renderer XML, in the layer property <code>zero2urbanportrait/original_renderer</code>. All operations are reversible via Restore, also after the project has been saved and reopened. No source geometry or attributes are modified.</li>
+  <li><strong>Saved projects:</strong> the portrait renderer is plain QGIS styling, so a saved project reopens with the portrait intact, with or without the plugin. When the dock opens on such a project it reconnects the portrait layers: with the portrait picture still on disk, live updates resume; otherwise the saved portrait stays as it is and Restore remains available.</li>
   <li><strong>Live update (240 ms debounce):</strong> A <code>QTimer</code> limits re-sampling to once per 240 ms during pan/zoom, controlled by the <code>max_features</code> cap (default 10,000).</li>
   <li><strong>Adaptive theme:</strong> All UI colours derive from the active <code>QPalette</code> with WCAG contrast compliance. The hero card intentionally remains dark for brand identity. Cyan accent switches between <code>#06B6D4</code> (dark theme) and <code>#0891B2</code> (light theme).</li>
-  <li><strong>Project state persistence:</strong> Full settings (image path, frame coords, preset, gamma, edge, opacity, invert, auto-contrast, max features, follow-canvas) serialised as JSON and stored in the QGIS project under key <code>zero2urbanportrait/state</code>. Re-opening restores state.</li>
-  <li><strong>Export pipeline:</strong> Uses <code>QgsPrintLayout</code> with a single map item filling the page. Page width scales to canvas aspect ratio (120&ndash;420 mm). SVG export uses <code>forceVectorOutput = True</code>.</li>
+  <li><strong>Project state persistence:</strong> Full settings (image path, frame coords, preset, gamma, edge, opacity, invert, auto-contrast, max features, follow-canvas, paper colour, halftone density and pattern) serialised as JSON and stored in the QGIS project under key <code>zero2urbanportrait/state</code>. Re-opening restores state.</li>
+  <li><strong>Export pipeline:</strong> Uses <code>QgsPrintLayout</code> with a single map item filling the page. The page has exactly the canvas aspect ratio (longer side up to 420 mm), the map item uses the canvas CRS and rotation, and both the page and the map background take the canvas colour, so a dark preset is not printed on white. SVG export uses <code>forceVectorOutput = True</code>.</li>
   <li><strong>QGIS compatibility:</strong> 3.28 through 4.99. Zero external Python dependencies.</li>
 </ul>
 </section>

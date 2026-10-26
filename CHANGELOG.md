@@ -1,5 +1,31 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- The halftone layer drew every dot at the same size: its data-defined size was set with `QgsProperty.fromField("radius * 2")`, which names a field that does not exist, so QGIS fell back to the static size. Dot size now evaluates the `radius` field.
+- Halftone inversion and gamma were applied twice (once by the image profile, then again by the grid), so *Invert light and shadow* had no effect on the halftone and gamma pulled in the wrong direction. The tone is now computed once.
+- A saved project reopened with blank or uniformly pale portrait layers: the renderer depended on a Python expression function and an in-memory cache that a new QGIS session does not have. The same flaw made an exported QML useless outside the session that wrote it.
+- *Restore original styles* could not restore anything after the project had been reopened, because the original renderer lived only in memory.
+- Preset background colours were defined but never applied, so the dark presets (Neon Night, Blueprint, Negative City, Cyberpunk 2077, Thermal Heatmap, Emerald Eco-Map) were drawn on a white map and exported on white paper.
+- Artwork export ignored the canvas colour and could leave a white band when the canvas was wider than 2:1 or taller than 1:1.75, because the page width was clamped while the map item kept the canvas extent. The page now has the exact canvas ratio, and the map item follows the canvas CRS and rotation.
+- Opening another project kept the previous project's picture, frame, and styled-layer list in the dock.
+- A view that cannot be transformed into a layer's CRS raised an error on every pan during live updates.
+
+### Changed
+- The portrait renderer is now a `QgsCategorizedSymbolRenderer` on `$id` whose tone categories list the sampled feature ids. It no longer calls into Python per feature, so it renders at native speed in QGIS' parallel render threads, survives saving and reopening the project (also without the plugin), and exports as a complete QML for the same dataset.
+- Halftone dot area is proportional to darkness (radius follows the square root of darkness), and the darkest tone covers its whole cell, so midtones print at their true ink share.
+- Halftone cells are square on any frame shape: the dot count applies to the longer side.
+- Halftone dots use the preset's deepest colour instead of a fixed near-black.
+- New plugin icon: the portrait relief from the 0.4.2 medallion, freed from its plate and rim, on a transparent background that fills the icon edge to edge.
+
+### Added
+- *Paint the map background with the preset paper colour* (on by default). The previous colour is stored in the project and returns with *Restore original styles*.
+- A five-colour swatch of the selected preset on its paper.
+- Hex halftone pattern (offset rows, like a print screen) next to the square grid.
+- Portrait layers saved in a project are reconnected when the dock opens: with the picture still on disk, live updates resume.
+- QGIS acceptance checks that render real maps on QGIS 3.44 LTR and 4.x: tone order across a gradient, project save and reopen, paper colour and export background, halftone size, inversion and pattern, and the dock's project lifecycle.
+
 ## [0.4.2] - 2026-09-17
 
 - Upgraded official plugin icon to high-end tactile 3D brand identity (isometric 45°, slim teal pedestal, full bleed transparent canvas).

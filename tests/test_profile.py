@@ -48,3 +48,18 @@ def test_histogram_limits_and_edges():
     histogram[220] = 10
     assert quantile_limits(histogram) == (20, 220)
     assert blend_edge(180, 255, 1.0) == 0
+
+
+def test_tone_index_matches_preset_breaks():
+    from zero2urbanportrait.core.presets import TONE_BREAKS
+    from zero2urbanportrait.core.profile import tone_index
+    for index in range(5):
+        assert tone_index(TONE_BREAKS[index]) == index
+        assert tone_index(TONE_BREAKS[index + 1] - 1) == index
+    assert tone_index(-5) == 0 and tone_index(999) == 4
+
+
+def test_group_by_tone_leaves_paper_to_the_catch_all():
+    from zero2urbanportrait.core.profile import group_by_tone
+    groups = group_by_tone({7: 10, 3: 0, 5: 60, 9: 255, 11: 230, 2: 170})
+    assert groups == [[3, 7], [5], [], [2]]

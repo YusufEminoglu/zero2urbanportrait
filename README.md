@@ -23,7 +23,9 @@
 - Local smart contrast, gamma, inversion, and edge emphasis.
 - Line underlays for shadow/glow depth and tonal polygon fills.
 - Multiple vector layers in one composition.
-- Original renderer restoration, QML style export, and PNG/PDF/SVG artwork export.
+- Original renderer restoration (also after saving and reopening the project), self-contained QML style export, and PNG/PDF/SVG artwork export on the preset paper colour.
+- Tone-accurate halftone: dot area follows darkness, square cells on any frame shape, square or hex (print-screen) pattern, inked with the preset colour.
+- Saved projects keep the portrait as plain QGIS styling, so they open correctly even where the plugin is not installed.
 - Workflow-aware action states, halftone-only composition export, and frame visibility that is preserved across artwork exports.
 - Project-persistent frame and visual settings.
 - No pip dependency, cloud upload, API key, or mutation of source data.
@@ -45,7 +47,7 @@ For long road features, Balanced or High quality sampling preserves the portrait
 
 ## How it works
 
-The plugin keeps luminance results in an in-memory cache keyed by layer and feature ID. A registered QGIS expression function exposes those values to a `QgsRuleBasedRenderer`; five tonal rules drive line weight, underlay, fill, color, opacity, and highlight suppression. The renderer is temporary and the original renderer is cloned before styling.
+Each visible feature is sampled against the picture and assigned one of five tones. The tones become a `QgsCategorizedSymbolRenderer` on `$id`: four categories list the feature ids of the darker tones, and a catch-all category draws the Paper tone and anything not sampled. The five classes drive line weight, underlay, fill, color, opacity, and highlight suppression. Nothing in the renderer calls back into Python, so it renders at native speed and stays valid in a saved project or an exported QML. The original renderer is cloned before styling and stored with the layer, so it can be restored at any time.
 
 ## Privacy and smart tools
 
