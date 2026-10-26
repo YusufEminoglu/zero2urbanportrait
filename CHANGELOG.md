@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.5.0] - 2026-10-26
 
 ### Fixed
 - The halftone layer drew every dot at the same size: its data-defined size was set with `QgsProperty.fromField("radius * 2")`, which names a field that does not exist, so QGIS fell back to the static size. Dot size now evaluates the `radius` field.
