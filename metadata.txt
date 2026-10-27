@@ -2,19 +2,21 @@
 name=02UrbanPortrait - City as a Face
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
-description=Create live urban portraits from built-in OSM downloads or project vectors, with luminance styling and print-ready export.
+description=Draw a portrait with a city's own streets and buildings: line weights and colours follow a photo's light and dark, live on the map, exported to PNG, PDF or SVG for print.
 version=0.5.0
 author=Geophilo
 email=yusuf.eminoglu@deu.edu.tr
 
-about=02Urban Portrait transforms vector infrastructure into optical portraits, cartographic engravings, and graphic masks. Load a profile image, map it to a geographic frame, and style roads, buildings, points, or other vector layers from sampled pixel luminance without changing source geometries or attributes. Features interactive 3-stage visual workflow stepper with numbered circular badges, a tone-accurate square or hex halftone generator, 10 curated artistic colorway presets with JSON import/export and preset paper colours, prominent built-in OSM acquisition with live safety badges, live pan and zoom updates, portraits that survive saving the project, and PNG/PDF/SVG export. Online User Manual & Documentation: https://geophilo.com/zero2urbanportrait/ | If you find this plugin helpful, please consider starring the repository on GitLab (https://gitlab.com/geophilo1/zero2urbanportrait)!
+about=02UrbanPortrait turns a street network into a picture. Load a photo, place it over an area, and roads, buildings and points take their stroke width, size or colour from the brightness beneath them; from a distance the city becomes a face, a landmark or a logo. Your source geometry and attributes are never changed.
+    Download streets and buildings for the area in one step or use project layers. Choose engraving, halftone (square or hex) or mask styles, start from ten colourways or your own JSON preset, and see the portrait update as you pan and zoom. The portrait is saved with the project and exports as PNG, PDF or SVG for posters and print.
+    Manual: https://geophilo.com/zero2urbanportrait/manual.html
 
 tracker=https://gitlab.com/geophilo1/zero2urbanportrait/-/issues
 repository=https://gitlab.com/geophilo1/zero2urbanportrait
 homepage=https://geophilo.com/zero2urbanportrait/
 
 category=Vector
-tags=portrait,osm,optical illusion,luminance,cartography,roads,buildings,generative art,halftone,stippling,engraving
+tags=portrait,osm,optical illusion,luminance,cartography,roads,buildings,generative art,halftone,stippling,engraving,map art,poster,geophilo
 icon=icons/icon.png
 
 experimental=False
