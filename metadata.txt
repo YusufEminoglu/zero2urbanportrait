@@ -3,7 +3,7 @@ name=02UrbanPortrait - City as a Face
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Draw a portrait with a city's own streets and buildings: line weights and colours follow a photo's light and dark, live on the map, exported to PNG, PDF or SVG for print.
-version=0.5.0
+version=0.5.1
 author=Geophilo
 email=yusuf.eminoglu@deu.edu.tr
 
